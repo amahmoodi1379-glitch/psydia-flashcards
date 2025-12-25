@@ -1,20 +1,37 @@
 import { cn } from "@/lib/utils";
+import { useSubjectProgress } from "@/hooks/useSubjectProgress";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
   return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
 };
 
-// Sample subjects with progress
-const subjects = [
-  { name: "روانشناسی رشد", progress: 0, total: 50 },
-  { name: "روانشناسی یادگیری", progress: 0, total: 45 },
-  { name: "روانشناسی شخصیت", progress: 0, total: 60 },
-  { name: "آسیب‌شناسی روانی", progress: 0, total: 80 },
-  { name: "روانشناسی اجتماعی", progress: 0, total: 40 },
-];
-
 export function SubjectProgress() {
+  const { subjects, isLoading } = useSubjectProgress();
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-xl border border-border divide-y divide-border">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="p-4">
+            <Skeleton className="h-5 w-32 mb-2" />
+            <Skeleton className="h-2 w-full rounded-full" />
+            <Skeleton className="h-3 w-24 mt-1" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (subjects.length === 0) {
+    return (
+      <div className="bg-card rounded-xl p-4 border border-border text-center text-muted-foreground text-sm">
+        درسی یافت نشد
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card rounded-xl border border-border divide-y divide-border">
       {subjects.map((subject) => {
