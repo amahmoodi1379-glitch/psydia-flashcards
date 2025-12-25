@@ -14,7 +14,255 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      attempt_logs: {
+        Row: {
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_index: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          selected_index?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_index?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attempt_logs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attempt_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          telegram_id: string | null
+          theme_preference: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          telegram_id?: string | null
+          theme_preference?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          telegram_id?: string | null
+          theme_preference?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          choices: Json
+          correct_index: number
+          created_at: string
+          explanation: string | null
+          id: string
+          is_active: boolean
+          stem_text: string
+          subtopic_id: string
+        }
+        Insert: {
+          choices: Json
+          correct_index: number
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          is_active?: boolean
+          stem_text: string
+          subtopic_id: string
+        }
+        Update: {
+          choices?: Json
+          correct_index?: number
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          is_active?: boolean
+          stem_text?: string
+          subtopic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_subtopic_id_fkey"
+            columns: ["subtopic_id"]
+            isOneToOne: false
+            referencedRelation: "subtopics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      subtopics: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          title: string
+          topic_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          title: string
+          topic_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          title?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtopics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topics: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          subject_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          subject_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          subject_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_question_state: {
+        Row: {
+          box_number: number
+          created_at: string
+          ease_factor: number
+          id: string
+          interval_days: number
+          next_review_at: string
+          question_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          box_number?: number
+          created_at?: string
+          ease_factor?: number
+          id?: string
+          interval_days?: number
+          next_review_at?: string
+          question_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          box_number?: number
+          created_at?: string
+          ease_factor?: number
+          id?: string
+          interval_days?: number
+          next_review_at?: string
+          question_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_question_state_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_question_state_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
