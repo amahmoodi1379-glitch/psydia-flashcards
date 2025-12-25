@@ -5,7 +5,7 @@ import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Trophy, Star, Flag, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useQuestions } from "@/hooks/useQuestions";
+import { useReviewQuestions, ReviewFilter } from "@/hooks/useReviewQuestions";
 import { useRecordAnswer } from "@/hooks/useRecordAnswer";
 
 const toPersianNumber = (num: number): string => {
@@ -17,8 +17,10 @@ export default function ReviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionSize = location.state?.sessionSize || 10;
+  const filter: ReviewFilter = location.state?.filter || { type: "daily" };
+  const sessionTitle = location.state?.title || "مرور روزانه";
   
-  const { questions, isLoading, error } = useQuestions(sessionSize);
+  const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();
   
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -116,7 +118,7 @@ export default function ReviewPage() {
             آفرین! 🎉
           </h2>
           <p className="text-muted-foreground text-center mb-4">
-            جلسه امروز را با موفقیت تمام کردید.
+            جلسه را با موفقیت تمام کردید.
           </p>
           
           {/* Stats */}
@@ -149,6 +151,7 @@ export default function ReviewPage() {
           </Button>
           
           <div className="text-center">
+            <p className="text-xs text-muted-foreground mb-0.5">{sessionTitle}</p>
             <p className="text-sm font-medium text-foreground">
               سوال {toPersianNumber(currentIndex + 1)} از {toPersianNumber(totalQuestions)}
             </p>
