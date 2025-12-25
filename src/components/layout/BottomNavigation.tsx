@@ -4,12 +4,12 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   {
-    label: "Exam",
+    label: "آزمون",
     path: "/",
     icon: BookOpen,
   },
   {
-    label: "Profile",
+    label: "پروفایل",
     path: "/profile",
     icon: User,
   },
@@ -39,7 +39,7 @@ export function BottomNavigation() {
               <div
                 className={cn(
                   "flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200",
-                  isActive && "bg-secondary"
+                  isActive && "bg-primary/10"
                 )}
               >
                 <Icon
