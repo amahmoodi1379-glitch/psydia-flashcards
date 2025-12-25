@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, RotateCcw, Calendar } from "lucide-react";
+import { PlayCircle, RotateCcw, Calendar, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTodayCount } from "@/hooks/useQuestions";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -15,7 +16,8 @@ const sessionSizes = [10, 20, 30];
 export default function ExamPage() {
   const navigate = useNavigate();
   const [sessionSize, setSessionSize] = useState(20);
-  const [hasActiveSession] = useState(false); // Will be connected to state later
+  const [hasActiveSession] = useState(false);
+  const { count: todayCount, isLoading } = useTodayCount();
 
   const handleStartReview = () => {
     navigate("/review", { state: { sessionSize } });
@@ -69,13 +71,17 @@ export default function ExamPage() {
           <div className="bg-card rounded-2xl p-5 border border-border">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center">
-                <Calendar className="w-7 h-7 text-primary" />
+                {isLoading ? (
+                  <Loader2 className="w-7 h-7 text-primary animate-spin" />
+                ) : (
+                  <Calendar className="w-7 h-7 text-primary" />
+                )}
               </div>
               <div>
                 <p className="text-3xl font-bold text-foreground">
-                  {toPersianNumber(0)}
+                  {isLoading ? "..." : toPersianNumber(todayCount)}
                 </p>
-                <p className="text-sm text-muted-foreground">کارت برای امروز</p>
+                <p className="text-sm text-muted-foreground">سوال موجود</p>
               </div>
             </div>
           </div>
@@ -117,23 +123,39 @@ export default function ExamPage() {
             size="xl"
             className="w-full gap-3"
             onClick={handleStartReview}
+            disabled={todayCount === 0 && !isLoading}
           >
             <PlayCircle className="w-6 h-6" />
             شروع مرور روزانه
           </Button>
         </div>
 
-        {/* Empty State Info */}
-        <div 
-          className="mt-8 text-center animate-fade-in" 
-          style={{ animationDelay: "0.25s" }}
-        >
-          <div className="bg-secondary/50 rounded-2xl p-6">
-            <p className="text-sm text-muted-foreground">
-              برای شروع، اتصال به پایگاه داده را فعال کنید تا سوالات بارگذاری شوند.
-            </p>
+        {/* Info Message */}
+        {!isLoading && todayCount === 0 && (
+          <div 
+            className="mt-8 text-center animate-fade-in" 
+            style={{ animationDelay: "0.25s" }}
+          >
+            <div className="bg-secondary/50 rounded-2xl p-6">
+              <p className="text-sm text-muted-foreground">
+                هیچ سوالی در پایگاه داده یافت نشد.
+              </p>
+            </div>
           </div>
-        </div>
+        )}
+
+        {!isLoading && todayCount > 0 && (
+          <div 
+            className="mt-8 text-center animate-fade-in" 
+            style={{ animationDelay: "0.25s" }}
+          >
+            <div className="bg-success/10 rounded-2xl p-6 border border-success/20">
+              <p className="text-sm text-success">
+                ✓ اتصال به پایگاه داده برقرار است
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
