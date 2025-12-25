@@ -1,20 +1,6 @@
 import { cn } from "@/lib/utils";
-
-// Sample data for the heatmap
-const subtopics = [
-  { name: "رشد", mastery: 0 },
-  { name: "یادگیری", mastery: 0 },
-  { name: "شخصیت", mastery: 0 },
-  { name: "اختلالات", mastery: 0 },
-  { name: "اجتماعی", mastery: 0 },
-  { name: "شناختی", mastery: 0 },
-  { name: "فیزیولوژی", mastery: 0 },
-  { name: "آمار", mastery: 0 },
-  { name: "روش تحقیق", mastery: 0 },
-  { name: "تاریخچه", mastery: 0 },
-  { name: "هوش", mastery: 0 },
-  { name: "انگیزش", mastery: 0 },
-];
+import { useMasteryData } from "@/hooks/useMasteryData";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const getMasteryColor = (mastery: number) => {
   if (mastery === 0) return "bg-muted";
@@ -25,6 +11,28 @@ const getMasteryColor = (mastery: number) => {
 };
 
 export function MasteryHeatmap() {
+  const { subtopics, isLoading } = useMasteryData();
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-xl p-4 border border-border">
+        <div className="grid grid-cols-4 gap-2">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-square rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (subtopics.length === 0) {
+    return (
+      <div className="bg-card rounded-xl p-4 border border-border text-center text-muted-foreground text-sm">
+        زیرموضوعی یافت نشد
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card rounded-xl p-4 border border-border">
       <div className="grid grid-cols-4 gap-2">

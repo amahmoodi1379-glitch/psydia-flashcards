@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Trophy, Star, Flag, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuestions } from "@/hooks/useQuestions";
+import { useRecordAnswer } from "@/hooks/useRecordAnswer";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -18,6 +19,7 @@ export default function ReviewPage() {
   const sessionSize = location.state?.sessionSize || 10;
   
   const { questions, isLoading, error } = useQuestions(sessionSize);
+  const { recordAnswer } = useRecordAnswer();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasAnswered, setHasAnswered] = useState(false);
@@ -29,10 +31,15 @@ export default function ReviewPage() {
   const totalQuestions = questions.length;
   const isBookmarked = currentQuestion ? bookmarkedIds.has(currentQuestion.id) : false;
 
-  const handleAnswer = (selectedIndex: number, correct: boolean) => {
+  const handleAnswer = async (selectedIndex: number, correct: boolean) => {
     setHasAnswered(true);
     if (correct) {
       setCorrectCount((prev) => prev + 1);
+    }
+    
+    // Record answer with SM2 algorithm
+    if (currentQuestion) {
+      await recordAnswer(currentQuestion.id, selectedIndex, correct);
     }
   };
 
