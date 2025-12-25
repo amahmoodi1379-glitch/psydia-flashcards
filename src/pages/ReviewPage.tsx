@@ -1,44 +1,58 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { FlashCard } from "@/components/exam/FlashCard";
-import { DifficultyButtons } from "@/components/exam/DifficultyButtons";
+import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowRight, Trophy, Star, Flag } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const toPersianNumber = (num: number): string => {
+  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
+};
 
 // Sample question for UI demo
 const sampleQuestion = {
   id: "1",
   stem_text:
-    "According to Erikson's stages of psychosocial development, what is the primary conflict during adolescence?",
+    "بر اساس مراحل رشد روانی-اجتماعی اریکسون، تعارض اصلی در دوره نوجوانی چیست؟",
   choices: [
-    "Trust vs. Mistrust",
-    "Industry vs. Inferiority",
-    "Identity vs. Role Confusion",
-    "Intimacy vs. Isolation",
+    "اعتماد در برابر بی‌اعتمادی",
+    "سازندگی در برابر حقارت",
+    "هویت در برابر سردرگمی نقش",
+    "صمیمیت در برابر انزوا",
   ],
   correct_index: 2,
+  explanation: "اریکسون معتقد بود که بحران اصلی نوجوانی، شکل‌گیری هویت است. نوجوان در این مرحله تلاش می‌کند تا بفهمد کیست و چه نقشی در جامعه دارد. موفقیت در این مرحله منجر به احساس هویت منسجم می‌شود.",
 };
 
 export default function ReviewPage() {
   const navigate = useNavigate();
   const [hasAnswered, setHasAnswered] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [currentQuestion] = useState(1);
+  const [totalQuestions] = useState(10);
 
-  const handleAnswer = (selectedIndex: number, correct: boolean) => {
+  const handleAnswer = () => {
     setHasAnswered(true);
-    setIsCorrect(correct);
   };
 
-  const handleDifficulty = (difficulty: "easy" | "medium" | "hard") => {
-    console.log("Selected difficulty:", difficulty);
-    // For demo, just show completion
-    setIsComplete(true);
+  const handleNextQuestion = () => {
+    if (currentQuestion >= totalQuestions) {
+      setIsComplete(true);
+    } else {
+      // In real app, would load next question
+      setHasAnswered(false);
+    }
   };
 
   const handleGoBack = () => {
     navigate("/");
+  };
+
+  const handleReport = () => {
+    console.log("Report question:", sampleQuestion.id);
   };
 
   if (isComplete) {
@@ -49,13 +63,13 @@ export default function ReviewPage() {
             <Trophy className="w-10 h-10 text-success" />
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-2">
-            Great job! 🎉
+            آفرین! 🎉
           </h2>
           <p className="text-muted-foreground text-center mb-8">
-            You've completed today's review session.
+            جلسه امروز را با موفقیت تمام کردید.
           </p>
           <Button variant="hero" size="lg" onClick={handleGoBack}>
-            Back to Dashboard
+            بازگشت به خانه
           </Button>
         </div>
       </AppLayout>
@@ -68,35 +82,63 @@ export default function ReviewPage() {
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/50 backdrop-blur-lg">
           <Button variant="ghost" size="icon" onClick={handleGoBack}>
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowRight className="w-5 h-5" />
           </Button>
+          
           <div className="text-center">
-            <p className="text-sm font-medium text-foreground">Card 1 of 1</p>
-            <p className="text-xs text-muted-foreground">Demo Mode</p>
+            <p className="text-sm font-medium text-foreground">
+              سوال {toPersianNumber(currentQuestion)} از {toPersianNumber(totalQuestions)}
+            </p>
           </div>
-          <div className="w-10" /> {/* Spacer for alignment */}
+          
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setIsBookmarked(!isBookmarked)}
+              className={cn(isBookmarked && "text-accent")}
+            >
+              <Star className={cn("w-5 h-5", isBookmarked && "fill-current")} />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleReport}>
+              <Flag className="w-5 h-5" />
+            </Button>
+          </div>
         </header>
 
         {/* Progress Bar */}
         <div className="h-1 bg-secondary">
           <div
             className="h-full bg-primary transition-all duration-500"
-            style={{ width: hasAnswered ? "100%" : "0%" }}
+            style={{ width: `${(currentQuestion / totalQuestions) * 100}%` }}
           />
         </div>
 
         {/* Question Area */}
-        <div className="flex-1 flex items-center px-4 py-8">
-          <FlashCard
+        <div className="flex-1 flex flex-col px-4 py-6">
+          <QuestionCard
             question={sampleQuestion.stem_text}
             choices={sampleQuestion.choices}
             correctIndex={sampleQuestion.correct_index}
+            explanation={sampleQuestion.explanation}
             onAnswer={handleAnswer}
+            hasAnswered={hasAnswered}
           />
         </div>
 
-        {/* Difficulty Buttons */}
-        <DifficultyButtons onSelect={handleDifficulty} visible={hasAnswered} />
+        {/* Next Button - Only visible after answering */}
+        {hasAnswered && (
+          <div className="px-4 pb-6 animate-slide-up">
+            <Button
+              variant="hero"
+              size="lg"
+              className="w-full"
+              onClick={handleNextQuestion}
+            >
+              سوال بعدی
+            </Button>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
