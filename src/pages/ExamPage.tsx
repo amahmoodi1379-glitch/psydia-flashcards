@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, RotateCcw, Calendar, Loader2 } from "lucide-react";
+import { PlayCircle, RotateCcw, Clock, BookOpen, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTodayCount } from "@/hooks/useQuestions";
+import { useDueCount } from "@/hooks/useReviewQuestions";
+import { SubjectSelector } from "@/components/exam/SubjectSelector";
+import { useAuth } from "@/contexts/AuthContext";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -15,23 +17,32 @@ const sessionSizes = [10, 20, 30];
 
 export default function ExamPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [sessionSize, setSessionSize] = useState(20);
   const [hasActiveSession] = useState(false);
-  const { count: todayCount, isLoading } = useTodayCount();
+  const { dueCount, newCount, total, isLoading } = useDueCount();
 
-  const handleStartReview = () => {
-    navigate("/review", { state: { sessionSize } });
+  const handleStartDailyReview = () => {
+    navigate("/review", { 
+      state: { 
+        sessionSize,
+        filter: { type: "daily" },
+        title: "مرور روزانه"
+      } 
+    });
   };
 
   const handleResumeSession = () => {
     navigate("/review", { state: { resume: true } });
   };
 
+  const reviewableCount = dueCount + newCount;
+
   return (
     <AppLayout>
       <div className="px-4 pt-6 pb-8 max-w-md mx-auto">
         {/* Header */}
-        <header className="mb-8 animate-fade-in">
+        <header className="mb-6 animate-fade-in">
           <h1 className="text-2xl font-bold text-foreground mb-1">
             برنامه امروز من
           </h1>
@@ -43,7 +54,7 @@ export default function ExamPage() {
         {/* Resume Card - Only visible if session is active */}
         {hasActiveSession && (
           <div 
-            className="mb-6 animate-fade-in"
+            className="mb-4 animate-fade-in"
             style={{ animationDelay: "0.05s" }}
           >
             <button
@@ -63,78 +74,113 @@ export default function ExamPage() {
           </div>
         )}
 
-        {/* Stats Card */}
-        <div 
+        {/* Daily Review Section */}
+        <section 
           className="mb-6 animate-fade-in"
           style={{ animationDelay: "0.1s" }}
         >
           <div className="bg-card rounded-2xl p-5 border border-border">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
                 {isLoading ? (
                   <Loader2 className="w-7 h-7 text-primary animate-spin" />
                 ) : (
-                  <Calendar className="w-7 h-7 text-primary" />
+                  <Clock className="w-7 h-7 text-primary" />
                 )}
               </div>
-              <div>
-                <p className="text-3xl font-bold text-foreground">
-                  {isLoading ? "..." : toPersianNumber(todayCount)}
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-foreground mb-1">
+                  مرور روزانه
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  سوالات بر اساس سیستم SM2 فاصله‌دار
                 </p>
-                <p className="text-sm text-muted-foreground">سوال موجود</p>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Session Size Toggle */}
-        <div 
-          className="mb-6 animate-fade-in"
+            {/* Stats */}
+            {!isLoading && user && (
+              <div className="flex gap-3 mb-4">
+                <div className="flex-1 bg-secondary/50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-warning">
+                    {toPersianNumber(dueCount)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">نیازمند مرور</p>
+                </div>
+                <div className="flex-1 bg-secondary/50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-success">
+                    {toPersianNumber(newCount)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">سوال جدید</p>
+                </div>
+              </div>
+            )}
+
+            {!isLoading && !user && (
+              <div className="bg-warning/10 border border-warning/20 rounded-xl p-3 mb-4">
+                <p className="text-sm text-warning text-center">
+                  برای ذخیره پیشرفت، وارد حساب شوید
+                </p>
+              </div>
+            )}
+
+            {/* Session Size Toggle */}
+            <div className="mb-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                تعداد سوالات
+              </p>
+              <div className="flex gap-2">
+                {sessionSizes.map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setSessionSize(size)}
+                    className={cn(
+                      "flex-1 py-2 rounded-xl font-semibold text-sm transition-all duration-200",
+                      sessionSize === size
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    )}
+                  >
+                    {toPersianNumber(size)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Start Button */}
+            <Button
+              variant="hero"
+              size="lg"
+              className="w-full gap-2"
+              onClick={handleStartDailyReview}
+              disabled={(reviewableCount === 0 && !isLoading) || total === 0}
+            >
+              <PlayCircle className="w-5 h-5" />
+              شروع مرور روزانه
+            </Button>
+          </div>
+        </section>
+
+        {/* Subject Selection Section */}
+        <section 
+          className="animate-fade-in"
           style={{ animationDelay: "0.15s" }}
         >
-          <p className="text-sm font-medium text-muted-foreground mb-3">
-            تعداد سوالات جلسه
-          </p>
-          <div className="flex gap-2">
-            {sessionSizes.map((size) => (
-              <button
-                key={size}
-                onClick={() => setSessionSize(size)}
-                className={cn(
-                  "flex-1 py-3 rounded-xl font-semibold text-lg transition-all duration-200",
-                  sessionSize === size
-                    ? "bg-primary text-primary-foreground shadow-lg"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                )}
-              >
-                {toPersianNumber(size)}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 mb-3">
+            <BookOpen className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-sm font-semibold text-muted-foreground">
+              مرور بر اساس درس
+            </h2>
           </div>
-        </div>
+          
+          <SubjectSelector sessionSize={sessionSize} />
+        </section>
 
-        {/* Start Button */}
-        <div 
-          className="animate-fade-in" 
-          style={{ animationDelay: "0.2s" }}
-        >
-          <Button
-            variant="hero"
-            size="xl"
-            className="w-full gap-3"
-            onClick={handleStartReview}
-            disabled={todayCount === 0 && !isLoading}
-          >
-            <PlayCircle className="w-6 h-6" />
-            شروع مرور روزانه
-          </Button>
-        </div>
-
-        {/* Info Message */}
-        {!isLoading && todayCount === 0 && (
+        {/* Info Messages */}
+        {!isLoading && total === 0 && (
           <div 
-            className="mt-8 text-center animate-fade-in" 
-            style={{ animationDelay: "0.25s" }}
+            className="mt-6 text-center animate-fade-in" 
+            style={{ animationDelay: "0.2s" }}
           >
             <div className="bg-secondary/50 rounded-2xl p-6">
               <p className="text-sm text-muted-foreground">
@@ -144,14 +190,14 @@ export default function ExamPage() {
           </div>
         )}
 
-        {!isLoading && todayCount > 0 && (
+        {!isLoading && total > 0 && (
           <div 
-            className="mt-8 text-center animate-fade-in" 
-            style={{ animationDelay: "0.25s" }}
+            className="mt-6 text-center animate-fade-in" 
+            style={{ animationDelay: "0.2s" }}
           >
-            <div className="bg-success/10 rounded-2xl p-6 border border-success/20">
-              <p className="text-sm text-success">
-                ✓ اتصال به پایگاه داده برقرار است
+            <div className="bg-success/10 rounded-xl p-3 border border-success/20">
+              <p className="text-xs text-success">
+                ✓ {toPersianNumber(total)} سوال در دیتابیس
               </p>
             </div>
           </div>
