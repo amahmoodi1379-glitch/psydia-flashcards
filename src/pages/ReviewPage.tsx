@@ -1,48 +1,46 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Trophy, Star, Flag } from "lucide-react";
+import { ArrowRight, Trophy, Star, Flag, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuestions } from "@/hooks/useQuestions";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
   return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
 };
 
-// Sample question for UI demo
-const sampleQuestion = {
-  id: "1",
-  stem_text:
-    "بر اساس مراحل رشد روانی-اجتماعی اریکسون، تعارض اصلی در دوره نوجوانی چیست؟",
-  choices: [
-    "اعتماد در برابر بی‌اعتمادی",
-    "سازندگی در برابر حقارت",
-    "هویت در برابر سردرگمی نقش",
-    "صمیمیت در برابر انزوا",
-  ],
-  correct_index: 2,
-  explanation: "اریکسون معتقد بود که بحران اصلی نوجوانی، شکل‌گیری هویت است. نوجوان در این مرحله تلاش می‌کند تا بفهمد کیست و چه نقشی در جامعه دارد. موفقیت در این مرحله منجر به احساس هویت منسجم می‌شود.",
-};
-
 export default function ReviewPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const sessionSize = location.state?.sessionSize || 10;
+  
+  const { questions, isLoading, error } = useQuestions(sessionSize);
+  
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [currentQuestion] = useState(1);
-  const [totalQuestions] = useState(10);
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  const [correctCount, setCorrectCount] = useState(0);
 
-  const handleAnswer = () => {
+  const currentQuestion = questions[currentIndex];
+  const totalQuestions = questions.length;
+  const isBookmarked = currentQuestion ? bookmarkedIds.has(currentQuestion.id) : false;
+
+  const handleAnswer = (selectedIndex: number, correct: boolean) => {
     setHasAnswered(true);
+    if (correct) {
+      setCorrectCount((prev) => prev + 1);
+    }
   };
 
   const handleNextQuestion = () => {
-    if (currentQuestion >= totalQuestions) {
+    if (currentIndex >= totalQuestions - 1) {
       setIsComplete(true);
     } else {
-      // In real app, would load next question
+      setCurrentIndex((prev) => prev + 1);
       setHasAnswered(false);
     }
   };
@@ -51,11 +49,56 @@ export default function ReviewPage() {
     navigate("/");
   };
 
-  const handleReport = () => {
-    console.log("Report question:", sampleQuestion.id);
+  const handleToggleBookmark = () => {
+    if (!currentQuestion) return;
+    
+    setBookmarkedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(currentQuestion.id)) {
+        next.delete(currentQuestion.id);
+      } else {
+        next.add(currentQuestion.id);
+      }
+      return next;
+    });
   };
 
+  const handleReport = () => {
+    if (!currentQuestion) return;
+    console.log("Report question:", currentQuestion.id);
+    // TODO: Implement report functionality
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <AppLayout hideNav>
+        <div className="min-h-screen flex flex-col items-center justify-center p-6">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+          <p className="text-muted-foreground">در حال بارگذاری سوالات...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Error state
+  if (error || questions.length === 0) {
+    return (
+      <AppLayout hideNav>
+        <div className="min-h-screen flex flex-col items-center justify-center p-6">
+          <p className="text-destructive mb-4">{error || "سوالی یافت نشد"}</p>
+          <Button variant="outline" onClick={handleGoBack}>
+            بازگشت
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Complete state
   if (isComplete) {
+    const percentage = Math.round((correctCount / totalQuestions) * 100);
+    
     return (
       <AppLayout hideNav>
         <div className="min-h-screen flex flex-col items-center justify-center p-6 animate-fade-in">
@@ -65,9 +108,22 @@ export default function ReviewPage() {
           <h2 className="text-2xl font-bold text-foreground mb-2">
             آفرین! 🎉
           </h2>
-          <p className="text-muted-foreground text-center mb-8">
+          <p className="text-muted-foreground text-center mb-4">
             جلسه امروز را با موفقیت تمام کردید.
           </p>
+          
+          {/* Stats */}
+          <div className="bg-card rounded-2xl p-6 border border-border mb-8 w-full max-w-xs">
+            <div className="text-center">
+              <p className="text-4xl font-bold text-primary mb-1">
+                {toPersianNumber(percentage)}٪
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {toPersianNumber(correctCount)} از {toPersianNumber(totalQuestions)} صحیح
+              </p>
+            </div>
+          </div>
+          
           <Button variant="hero" size="lg" onClick={handleGoBack}>
             بازگشت به خانه
           </Button>
@@ -87,7 +143,7 @@ export default function ReviewPage() {
           
           <div className="text-center">
             <p className="text-sm font-medium text-foreground">
-              سوال {toPersianNumber(currentQuestion)} از {toPersianNumber(totalQuestions)}
+              سوال {toPersianNumber(currentIndex + 1)} از {toPersianNumber(totalQuestions)}
             </p>
           </div>
           
@@ -95,7 +151,7 @@ export default function ReviewPage() {
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={() => setIsBookmarked(!isBookmarked)}
+              onClick={handleToggleBookmark}
               className={cn(isBookmarked && "text-accent")}
             >
               <Star className={cn("w-5 h-5", isBookmarked && "fill-current")} />
@@ -110,20 +166,23 @@ export default function ReviewPage() {
         <div className="h-1 bg-secondary">
           <div
             className="h-full bg-primary transition-all duration-500"
-            style={{ width: `${(currentQuestion / totalQuestions) * 100}%` }}
+            style={{ width: `${((currentIndex + 1) / totalQuestions) * 100}%` }}
           />
         </div>
 
         {/* Question Area */}
-        <div className="flex-1 flex flex-col px-4 py-6">
-          <QuestionCard
-            question={sampleQuestion.stem_text}
-            choices={sampleQuestion.choices}
-            correctIndex={sampleQuestion.correct_index}
-            explanation={sampleQuestion.explanation}
-            onAnswer={handleAnswer}
-            hasAnswered={hasAnswered}
-          />
+        <div className="flex-1 flex flex-col px-4 py-6 overflow-y-auto">
+          {currentQuestion && (
+            <QuestionCard
+              key={currentQuestion.id}
+              question={currentQuestion.stem_text}
+              choices={currentQuestion.choices}
+              correctIndex={currentQuestion.correct_index}
+              explanation={currentQuestion.explanation || undefined}
+              onAnswer={handleAnswer}
+              hasAnswered={hasAnswered}
+            />
+          )}
         </div>
 
         {/* Next Button - Only visible after answering */}
@@ -135,7 +194,7 @@ export default function ReviewPage() {
               className="w-full"
               onClick={handleNextQuestion}
             >
-              سوال بعدی
+              {currentIndex >= totalQuestions - 1 ? "پایان جلسه" : "سوال بعدی"}
             </Button>
           </div>
         )}
