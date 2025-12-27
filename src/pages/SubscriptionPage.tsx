@@ -218,7 +218,7 @@ export default function SubscriptionPage() {
             <Button 
               className="w-full gap-2"
               onClick={() => {
-                window.open("https://t.me/YOUR_BOT", "_blank");
+                window.open("https://t.me/psydiabot", "_blank");
               }}
             >
               <ExternalLink className="w-4 h-4" />
