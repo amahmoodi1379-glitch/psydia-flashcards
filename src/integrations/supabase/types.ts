@@ -289,6 +289,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_subject_progress: {
+        Args: { _user_id: string }
+        Returns: {
+          answered_count: number
+          subject_name: string
+          total_count: number
+        }[]
+      }
+      get_subtopic_mastery: {
+        Args: { _user_id: string }
+        Returns: {
+          mastery_score: number
+          subtopic_name: string
+        }[]
+      }
+      get_user_profile_stats: {
+        Args: { _user_id: string }
+        Returns: {
+          correct_count: number
+          display_name: string
+          streak: number
+          total_answered: number
+        }[]
+      }
+      get_weekly_activity: {
+        Args: { _user_id: string }
+        Returns: {
+          activity_count: number
+          activity_date: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
