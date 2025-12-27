@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, ChevronRight, ChevronLeft, Edit, Crown } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Loader2, Search, ChevronRight, ChevronLeft, Edit, Crown, Shield } from 'lucide-react';
 import { useUsersWithSubscriptions } from '@/hooks/useUsersWithSubscriptions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -37,6 +38,7 @@ export default function UsersManager() {
   const [selectedPlan, setSelectedPlan] = useState<string>('free');
   const [selectedDuration, setSelectedDuration] = useState<string>('monthly');
   const [expiryDays, setExpiryDays] = useState<string>('30');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
 
@@ -69,6 +71,7 @@ export default function UsersManager() {
     setEditingUser(user);
     setSelectedPlan(user.subscription?.plan || 'free');
     setSelectedDuration(user.subscription?.duration || 'monthly');
+    setIsAdmin(user.is_admin || false);
     if (user.subscription?.expires_at) {
       const days = Math.ceil((new Date(user.subscription.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       setExpiryDays(String(Math.max(1, days)));
@@ -82,6 +85,7 @@ export default function UsersManager() {
     
     setIsSaving(true);
     try {
+      // Update subscription
       let expiresAt: string | null = null;
       if (selectedPlan !== 'free') {
         const expiry = new Date();
@@ -89,22 +93,34 @@ export default function UsersManager() {
         expiresAt = expiry.toISOString();
       }
 
-      const { data, error } = await supabase.rpc('admin_update_subscription', {
+      const { data: subData, error: subError } = await supabase.rpc('admin_update_subscription', {
         _user_id: editingUser.id,
         _plan: selectedPlan as "free" | "basic" | "advanced" | "smart",
         _duration: selectedPlan === 'free' ? null : selectedDuration as "monthly" | "quarterly",
         _expires_at: expiresAt,
       });
 
-      if (error) throw error;
-      if (!data) throw new Error('Update failed');
+      if (subError) throw subError;
+      if (!subData) throw new Error('Subscription update failed');
 
-      toast.success('اشتراک کاربر بروزرسانی شد');
+      // Update admin status
+      const wasAdmin = editingUser.is_admin || false;
+      if (isAdmin !== wasAdmin) {
+        const { data: adminData, error: adminError } = await supabase.rpc('toggle_admin_role', {
+          _target_user_id: editingUser.id,
+          _make_admin: isAdmin,
+        });
+
+        if (adminError) throw adminError;
+        if (!adminData) throw new Error('Admin role update failed');
+      }
+
+      toast.success('اطلاعات کاربر بروزرسانی شد');
       queryClient.invalidateQueries({ queryKey: ['admin-users-subscriptions'] });
       setEditingUser(null);
     } catch (error) {
-      console.error('Error updating subscription:', error);
-      toast.error('خطا در بروزرسانی اشتراک');
+      console.error('Error updating user:', error);
+      toast.error('خطا در بروزرسانی اطلاعات');
     } finally {
       setIsSaving(false);
     }
@@ -145,6 +161,7 @@ export default function UsersManager() {
                   <TableRow>
                     <TableHead>نام نمایشی</TableHead>
                     <TableHead>آیدی تلگرام</TableHead>
+                    <TableHead>نقش</TableHead>
                     <TableHead>اشتراک</TableHead>
                     <TableHead>انقضا</TableHead>
                     <TableHead>تعداد پاسخ</TableHead>
@@ -157,6 +174,14 @@ export default function UsersManager() {
                     <TableRow key={user.id}>
                       <TableCell>{user.display_name || '-'}</TableCell>
                       <TableCell className="font-mono text-sm">{user.telegram_id || '-'}</TableCell>
+                      <TableCell>
+                        {user.is_admin && (
+                          <Badge className="bg-destructive/10 text-destructive">
+                            <Shield className="w-3 h-3 mr-1" />
+                            ادمین
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge className={PLAN_COLORS[user.subscription?.plan || 'free']}>
                           {PLAN_LABELS[user.subscription?.plan || 'free']}
@@ -183,7 +208,7 @@ export default function UsersManager() {
                   ))}
                   {paginatedUsers.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                         {searchQuery ? 'هیچ کاربری با این مشخصات یافت نشد' : 'هیچ کاربری یافت نشد'}
                       </TableCell>
                     </TableRow>
@@ -222,13 +247,13 @@ export default function UsersManager() {
         </CardContent>
       </Card>
 
-      {/* Edit Subscription Dialog */}
+      {/* Edit User Dialog */}
       <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Crown className="w-5 h-5 text-primary" />
-              ویرایش اشتراک
+              ویرایش کاربر
             </DialogTitle>
           </DialogHeader>
           
@@ -237,6 +262,19 @@ export default function UsersManager() {
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="font-medium">{editingUser.display_name || 'بدون نام'}</p>
                 <p className="text-sm text-muted-foreground">{editingUser.telegram_id || '-'}</p>
+              </div>
+
+              {/* Admin Toggle */}
+              <div className="flex items-center justify-between p-3 bg-destructive/5 rounded-lg border border-destructive/20">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-destructive" />
+                  <Label htmlFor="admin-toggle">دسترسی ادمین</Label>
+                </div>
+                <Switch
+                  id="admin-toggle"
+                  checked={isAdmin}
+                  onCheckedChange={setIsAdmin}
+                />
               </div>
 
               <div className="space-y-2">

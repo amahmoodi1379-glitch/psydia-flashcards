@@ -3,6 +3,7 @@ import { User, Moon, Sun, BookOpen, TrendingUp, Target, LogIn, LogOut, Lock } fr
 import { useNavigate } from "react-router-dom";
 import { HierarchicalMasteryMap } from "@/components/profile/HierarchicalMasteryMap";
 import { ActivitySparkline } from "@/components/profile/ActivitySparkline";
+import { ExtendedActivityChart } from "@/components/profile/ExtendedActivityChart";
 import { SubjectProgress } from "@/components/profile/SubjectProgress";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,6 +37,7 @@ export default function ProfilePage() {
   };
 
   const canViewMasteryMap = hasFeature("mastery_map");
+  const canViewExtendedActivity = hasFeature("extended_activity");
 
   return (
     <AppLayout>
@@ -136,16 +138,34 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Activity Sparkline */}
+        {/* Activity Section */}
         <div 
           className="mb-6 animate-fade-in" 
           style={{ animationDelay: "0.2s" }}
         >
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">فعالیت ۷ روز اخیر</h2>
+            <h2 className="font-semibold text-foreground">
+              {canViewExtendedActivity ? "گزارش فعالیت" : "فعالیت ۷ روز اخیر"}
+            </h2>
           </div>
-          <ActivitySparkline />
+          {canViewExtendedActivity ? (
+            <ExtendedActivityChart />
+          ) : (
+            <>
+              <ActivitySparkline />
+              <Card className="mt-3 border-dashed border-2 border-muted">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    برای مشاهده آمار ماهانه، ۳ ماهه، ۶ ماهه و سالانه
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => navigate("/subscription")}>
+                    ارتقای اشتراک
+                  </Button>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* Subject Mastery */}

@@ -538,6 +538,20 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_extended_activity: {
+        Args: { _days: number; _user_id: string }
+        Returns: {
+          activity_count: number
+          activity_date: string
+        }[]
+      }
+      get_frequently_wrong_questions: {
+        Args: { _user_id: string }
+        Returns: {
+          question_id: string
+          wrong_count: number
+        }[]
+      }
       get_hierarchical_mastery: {
         Args: { _user_id: string }
         Returns: {
@@ -601,6 +615,10 @@ export type Database = {
         Returns: boolean
       }
       increment_daily_usage: { Args: { _user_id: string }; Returns: boolean }
+      toggle_admin_role: {
+        Args: { _make_admin: boolean; _target_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"

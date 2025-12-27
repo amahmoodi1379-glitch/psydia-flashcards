@@ -10,6 +10,7 @@ interface UserWithSubscription {
   updated_at: string;
   attempt_count: number;
   correct_count: number;
+  is_admin: boolean;
   subscription?: {
     plan: string;
     expires_at: string | null;
@@ -37,8 +38,22 @@ async function fetchUsersWithSubscriptions(): Promise<UserWithSubscription[]> {
     console.error("Error fetching subscriptions:", subError);
   }
 
+  // Get all admin roles
+  const { data: adminRoles, error: rolesError } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "admin");
+
+  if (rolesError) {
+    console.error("Error fetching admin roles:", rolesError);
+  }
+
   const subscriptionMap = new Map(
     (subscriptions || []).map((s) => [s.user_id, s])
+  );
+
+  const adminSet = new Set(
+    (adminRoles || []).map((r) => r.user_id)
   );
 
   return (users || []).map((u) => ({
@@ -49,6 +64,7 @@ async function fetchUsersWithSubscriptions(): Promise<UserWithSubscription[]> {
     updated_at: u.updated_at,
     attempt_count: Number(u.attempt_count) || 0,
     correct_count: Number(u.correct_count) || 0,
+    is_admin: adminSet.has(u.id),
     subscription: subscriptionMap.get(u.id) ? {
       plan: subscriptionMap.get(u.id)!.plan,
       expires_at: subscriptionMap.get(u.id)!.expires_at,

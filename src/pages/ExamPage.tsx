@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, RotateCcw, Clock, BookOpen, Loader2, Star, Lock } from "lucide-react";
+import { PlayCircle, RotateCcw, Clock, BookOpen, Loader2, Star, Lock, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDueCount } from "@/hooks/useReviewQuestions";
 import { SubjectSelector } from "@/components/exam/SubjectSelector";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useFrequentlyWrong } from "@/hooks/useFrequentlyWrong";
 import { useSubscription } from "@/hooks/useSubscription";
 
 const toPersianNumber = (num: number): string => {
@@ -24,8 +25,10 @@ export default function ExamPage() {
   const [hasActiveSession] = useState(false);
   const { dueCount, newCount, total, isLoading } = useDueCount();
   const { bookmarkCount } = useBookmarks();
+  const { wrongCount } = useFrequentlyWrong();
   const { hasFeature } = useSubscription();
   const canBookmark = hasFeature("bookmarks");
+  const canWrongReview = hasFeature("wrong_review");
 
   const handleStartDailyReview = () => {
     navigate("/review", { 
@@ -47,6 +50,16 @@ export default function ExamPage() {
         sessionSize: Math.min(sessionSize, bookmarkCount),
         filter: { type: "bookmarks" },
         title: "مرور نشان‌شده‌ها"
+      } 
+    });
+  };
+
+  const handleStartWrongReview = () => {
+    navigate("/review", { 
+      state: { 
+        sessionSize: Math.min(sessionSize, wrongCount),
+        filter: { type: "frequently_wrong" },
+        title: "مرور سوالات پراشتباه"
       } 
     });
   };
@@ -179,7 +192,7 @@ export default function ExamPage() {
         {/* Bookmarks Review Section - Only for advanced users */}
         {user && (
           <section 
-            className="mb-6 animate-fade-in"
+            className="mb-4 animate-fade-in"
             style={{ animationDelay: "0.12s" }}
           >
             <div className={cn(
@@ -221,10 +234,55 @@ export default function ExamPage() {
           </section>
         )}
 
+        {/* Frequently Wrong Questions Section - Only for advanced users */}
+        {user && (
+          <section 
+            className="mb-6 animate-fade-in"
+            style={{ animationDelay: "0.14s" }}
+          >
+            <div className={cn(
+              "bg-card rounded-2xl p-5 border border-border",
+              !canWrongReview && "opacity-60"
+            )}>
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-14 h-14 bg-destructive/10 rounded-xl flex items-center justify-center shrink-0">
+                  {canWrongReview ? (
+                    <AlertCircle className="w-7 h-7 text-destructive" />
+                  ) : (
+                    <Lock className="w-7 h-7 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold text-foreground mb-1">
+                    سوالات پراشتباه
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {canWrongReview 
+                      ? `${toPersianNumber(wrongCount)} سوال با ۲+ اشتباه`
+                      : "ویژه پلن پیشرفته"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full gap-2"
+                onClick={handleStartWrongReview}
+                disabled={!canWrongReview || wrongCount === 0}
+              >
+                <AlertCircle className="w-5 h-5" />
+                {canWrongReview ? "مرور پراشتباه‌ها" : "نیاز به پلن پیشرفته"}
+              </Button>
+            </div>
+          </section>
+        )}
+
         {/* Subject Selection Section */}
         <section 
           className="animate-fade-in"
-          style={{ animationDelay: "0.15s" }}
+          style={{ animationDelay: "0.16s" }}
         >
           <div className="flex items-center gap-2 mb-3">
             <BookOpen className="w-5 h-5 text-muted-foreground" />

@@ -1,11 +1,16 @@
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
-import { Crown, Zap, Sparkles, Brain, Check, ExternalLink, Bot } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Crown, Zap, Sparkles, Brain, Check, AlertTriangle, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -83,16 +88,71 @@ const formatPrice = (price: number) => {
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
-  const { subscription, isLoading } = useSubscription();
+  const { subscription, isLoading, refetch } = useSubscription();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
 
   const currentPlan = subscription?.plan || "free";
   const remainingToday = subscription ? subscription.daily_limit - subscription.today_usage : 10;
+
+  // Handle payment result from callback
+  useEffect(() => {
+    const paymentStatus = searchParams.get("payment");
+    const refId = searchParams.get("ref");
+    
+    if (paymentStatus === "success") {
+      toast.success(`پرداخت موفق! کد پیگیری: ${refId}`, { duration: 5000 });
+      refetch();
+      // Clear query params
+      setSearchParams({});
+    } else if (paymentStatus === "failed") {
+      toast.error("پرداخت ناموفق بود. لطفاً دوباره تلاش کنید.");
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams, refetch]);
+
+  const handlePurchase = async (planId: string, duration: "monthly" | "quarterly") => {
+    if (!user) {
+      toast.error("لطفاً ابتدا وارد حساب خود شوید");
+      return;
+    }
+
+    setPurchasingPlan(`${planId}-${duration}`);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("zarinpal-payment", {
+        body: {
+          user_id: user.id,
+          plan: planId,
+          duration: duration,
+          callback_type: "miniapp",
+        },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.payment_url) {
+        // Redirect to Zarinpal payment page
+        window.location.href = data.payment_url;
+      } else {
+        throw new Error("No payment URL received");
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      toast.error("خطا در ایجاد درخواست پرداخت. لطفاً دوباره تلاش کنید.");
+      setPurchasingPlan(null);
+    }
+  };
 
   return (
     <AppLayout>
       <div className="px-4 pt-6 pb-24 max-w-md mx-auto">
         {/* Header */}
-        <div className="text-center mb-8 animate-fade-in">
+        <div className="text-center mb-6 animate-fade-in">
           <div className="w-16 h-16 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Crown className="w-8 h-8 text-white" />
           </div>
@@ -102,9 +162,17 @@ export default function SubscriptionPage() {
           </p>
         </div>
 
+        {/* VPN Warning */}
+        <Alert className="mb-6 border-warning/50 bg-warning/10 animate-fade-in" style={{ animationDelay: "0.05s" }}>
+          <AlertTriangle className="h-5 w-5 text-warning" />
+          <AlertDescription className="text-warning font-medium">
+            توجه مهم: قبل از تهیه اشتراک، حتماً VPN خود را خاموش کنید. در غیر این صورت پرداخت با مشکل مواجه خواهد شد.
+          </AlertDescription>
+        </Alert>
+
         {/* Current Status */}
         {user && !isLoading && (
-          <Card className="mb-6 border-primary/20 bg-primary/5 animate-fade-in" style={{ animationDelay: "0.05s" }}>
+          <Card className="mb-6 border-primary/20 bg-primary/5 animate-fade-in" style={{ animationDelay: "0.1s" }}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -139,6 +207,7 @@ export default function SubscriptionPage() {
           {plans.map((plan, index) => {
             const Icon = plan.icon;
             const isCurrentPlan = currentPlan === plan.id;
+            const canPurchase = plan.price && !plan.comingSoon && !isCurrentPlan;
             
             return (
               <Card
@@ -149,7 +218,7 @@ export default function SubscriptionPage() {
                   isCurrentPlan && "ring-2 ring-primary",
                   plan.popular && "shadow-lg"
                 )}
-                style={{ animationDelay: `${0.1 + index * 0.05}s` }}
+                style={{ animationDelay: `${0.15 + index * 0.05}s` }}
               >
                 {plan.popular && (
                   <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-primary to-accent text-white text-xs font-medium py-1 text-center">
@@ -201,34 +270,57 @@ export default function SubscriptionPage() {
                       <span className="text-success">(صرفه‌جویی {toPersianNumber(Math.round(((plan.price.monthly * 3 - plan.price.quarterly) / (plan.price.monthly * 3)) * 100))}٪)</span>
                     </div>
                   )}
+
+                  {/* Purchase Buttons */}
+                  {canPurchase && user && (
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handlePurchase(plan.id, "monthly")}
+                        disabled={purchasingPlan !== null}
+                      >
+                        {purchasingPlan === `${plan.id}-monthly` ? (
+                          <Loader2 className="w-4 h-4 animate-spin ml-1" />
+                        ) : null}
+                        ماهانه
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handlePurchase(plan.id, "quarterly")}
+                        disabled={purchasingPlan !== null}
+                      >
+                        {purchasingPlan === `${plan.id}-quarterly` ? (
+                          <Loader2 className="w-4 h-4 animate-spin ml-1" />
+                        ) : null}
+                        ۳ ماهه
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
 
-        {/* Purchase CTA */}
-        <Card className="mt-8 border-2 border-dashed border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5 animate-fade-in" style={{ animationDelay: "0.35s" }}>
-          <CardContent className="p-6 text-center">
-            <Bot className="w-12 h-12 text-primary mx-auto mb-4" />
-            <h3 className="font-bold text-foreground mb-2">خرید اشتراک</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              برای تهیه اشتراک، با VPN خاموش به ربات تلگرام ما مراجعه کنید و از طریق درگاه امن زرین‌پال پرداخت کنید.
-            </p>
-            <Button 
-              className="w-full gap-2"
-              onClick={() => {
-                window.open("https://t.me/psydiabot", "_blank");
-              }}
-            >
-              <ExternalLink className="w-4 h-4" />
-              رفتن به ربات تلگرام
-            </Button>
-            <p className="text-xs text-muted-foreground mt-3">
-              پس از پرداخت موفق، اشتراک شما به صورت خودکار فعال می‌شود
-            </p>
-          </CardContent>
-        </Card>
+        {/* Login Required Message */}
+        {!user && (
+          <Card className="mt-6 border-2 border-dashed border-muted animate-fade-in" style={{ animationDelay: "0.4s" }}>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">
+                برای خرید اشتراک، ابتدا وارد حساب کاربری خود شوید
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Payment Info */}
+        <div className="mt-6 text-center text-xs text-muted-foreground animate-fade-in" style={{ animationDelay: "0.45s" }}>
+          <p>پرداخت امن از طریق درگاه زرین‌پال</p>
+          <p className="mt-1">پس از پرداخت موفق، اشتراک شما به صورت خودکار فعال می‌شود</p>
+        </div>
       </div>
     </AppLayout>
   );
