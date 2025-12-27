@@ -3,8 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   BookOpen, 
-  FolderTree, 
-  FileText, 
   HelpCircle, 
   Users,
   LogOut
@@ -19,9 +17,7 @@ interface AdminLayoutProps {
 
 const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'داشبورد' },
-  { path: '/admin/subjects', icon: BookOpen, label: 'درس‌ها' },
-  { path: '/admin/topics', icon: FolderTree, label: 'تاپیک‌ها' },
-  { path: '/admin/subtopics', icon: FileText, label: 'ساب‌تاپیک‌ها' },
+  { path: '/admin/content', icon: BookOpen, label: 'مدیریت محتوا' },
   { path: '/admin/questions', icon: HelpCircle, label: 'سوالات' },
   { path: '/admin/users', icon: Users, label: 'کاربران' },
 ];
