@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { useTelegramCheck } from '@/hooks/useTelegramCheck';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -8,12 +9,16 @@ interface TelegramGuardProps {
 }
 
 export function TelegramGuard({ children }: TelegramGuardProps) {
-  const { isTelegram, isLoading } = useTelegramCheck();
+  const { isTelegram, isLoading: telegramLoading } = useTelegramCheck();
+  const { isLoading: authLoading, isAuthenticated } = useAuth();
+
+  const isLoading = telegramLoading || authLoading;
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">در حال بارگذاری...</p>
       </div>
     );
   }
@@ -45,6 +50,16 @@ export function TelegramGuard({ children }: TelegramGuardProps) {
         <p className="text-sm text-muted-foreground mt-4">
           @psydiabot
         </p>
+      </div>
+    );
+  }
+
+  // Show loading while authenticating
+  if (!isAuthenticated && !authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">در حال احراز هویت...</p>
       </div>
     );
   }
