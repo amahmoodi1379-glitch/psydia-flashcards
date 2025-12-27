@@ -10,7 +10,7 @@ export interface Question {
 }
 
 export interface ReviewFilter {
-  type: "daily" | "subject" | "topic" | "subtopic" | "bookmarks";
+  type: "daily" | "subject" | "topic" | "subtopic" | "bookmarks" | "frequently_wrong";
   id?: string; // subject_id, topic_id, or subtopic_id
 }
 
@@ -66,6 +66,47 @@ export function useReviewQuestions(
           if (qError) throw qError;
 
           const limited = (bookmarkedQuestions || []).slice(0, limit);
+          const parsed: Question[] = limited.map((q) => ({
+            ...q,
+            choices: Array.isArray(q.choices)
+              ? q.choices
+              : JSON.parse(q.choices as string),
+          }));
+
+          setQuestions(parsed);
+          setDueCount(parsed.length);
+          setNewCount(0);
+          setIsLoading(false);
+          return;
+        }
+
+        // Handle frequently wrong questions filter
+        if (filter.type === "frequently_wrong" && user) {
+          const { data: wrongQuestions, error: wrongError } = await supabase.rpc(
+            "get_frequently_wrong_questions",
+            { _user_id: user.id }
+          );
+
+          if (wrongError) throw wrongError;
+
+          if (!wrongQuestions || wrongQuestions.length === 0) {
+            setQuestions([]);
+            setDueCount(0);
+            setNewCount(0);
+            setIsLoading(false);
+            return;
+          }
+
+          const wrongIds = wrongQuestions.map((w: { question_id: string }) => w.question_id);
+
+          const { data: wrongQuestionsData, error: qError } = await supabase
+            .from("questions_safe")
+            .select("id, stem_text, choices, subtopic_id")
+            .in("id", wrongIds);
+
+          if (qError) throw qError;
+
+          const limited = (wrongQuestionsData || []).slice(0, limit);
           const parsed: Question[] = limited.map((q) => ({
             ...q,
             choices: Array.isArray(q.choices)

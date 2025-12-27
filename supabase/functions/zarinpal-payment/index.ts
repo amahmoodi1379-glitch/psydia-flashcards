@@ -20,6 +20,9 @@ const PLAN_DURATIONS = {
   quarterly: 90,
 };
 
+// Base URL for the mini app (change this to your actual domain)
+const MINI_APP_BASE_URL = "https://ndqqudhrcrbydxjqkddr.lovableproject.com";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -30,29 +33,36 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    // Create payment request
+    // Create payment request (supports both telegram_id and user_id)
     if (req.method === "POST" && action === "create") {
-      const { telegram_id, plan, duration } = await req.json();
+      const { telegram_id, user_id, plan, duration, callback_type } = await req.json();
 
-      if (!telegram_id || !plan || !duration) {
+      if ((!telegram_id && !user_id) || !plan || !duration) {
         return new Response(
           JSON.stringify({ error: "Missing required fields" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Get user by telegram_id
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("telegram_id", telegram_id)
-        .single();
+      let profileId: string;
 
-      if (profileError || !profile) {
-        return new Response(
-          JSON.stringify({ error: "User not found" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      // Get user by telegram_id or use user_id directly
+      if (user_id) {
+        profileId = user_id;
+      } else {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("telegram_id", telegram_id)
+          .single();
+
+        if (profileError || !profile) {
+          return new Response(
+            JSON.stringify({ error: "User not found" }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        profileId = profile.id;
       }
 
       const amount = PLAN_PRICES[plan as keyof typeof PLAN_PRICES]?.[duration as keyof typeof PLAN_DURATIONS];
@@ -63,6 +73,11 @@ serve(async (req) => {
         );
       }
 
+      // Determine callback URL based on callback_type
+      const callbackUrl = callback_type === "miniapp" 
+        ? `${SUPABASE_URL}/functions/v1/zarinpal-payment?action=verify&callback=miniapp`
+        : `${SUPABASE_URL}/functions/v1/zarinpal-payment?action=verify`;
+
       // Create Zarinpal payment request
       const zarinpalResponse = await fetch("https://api.zarinpal.com/pg/v4/payment/request.json", {
         method: "POST",
@@ -70,17 +85,20 @@ serve(async (req) => {
         body: JSON.stringify({
           merchant_id: ZARINPAL_MERCHANT_ID,
           amount: amount * 10, // Convert Toman to Rial
-          callback_url: `${SUPABASE_URL}/functions/v1/zarinpal-payment?action=verify`,
+          callback_url: callbackUrl,
           description: `خرید اشتراک ${plan === "basic" ? "پایه" : "پیشرفته"} - ${duration === "monthly" ? "ماهانه" : "سه ماهه"}`,
           metadata: {
-            telegram_id,
+            telegram_id: telegram_id || null,
+            user_id: profileId,
             plan,
             duration,
+            callback_type: callback_type || "telegram",
           },
         }),
       });
 
       const zarinpalData = await zarinpalResponse.json();
+      console.log("Zarinpal response:", zarinpalData);
 
       if (zarinpalData.data?.code !== 100) {
         console.error("Zarinpal error:", zarinpalData);
@@ -94,7 +112,7 @@ serve(async (req) => {
 
       // Log payment request
       await supabase.from("payment_logs").insert({
-        user_id: profile.id,
+        user_id: profileId,
         authority,
         amount,
         plan,
@@ -116,12 +134,24 @@ serve(async (req) => {
     if (req.method === "GET" && action === "verify") {
       const authority = url.searchParams.get("Authority");
       const status = url.searchParams.get("Status");
+      const callbackType = url.searchParams.get("callback");
+
+      const getRedirectUrl = (success: boolean, refId?: string | number) => {
+        if (callbackType === "miniapp") {
+          return success 
+            ? `${MINI_APP_BASE_URL}/subscription?payment=success&ref=${refId}`
+            : `${MINI_APP_BASE_URL}/subscription?payment=failed`;
+        }
+        return success
+          ? `https://t.me/psydiabot?start=payment_success_${refId}`
+          : `https://t.me/psydiabot?start=payment_failed`;
+      };
 
       if (status !== "OK" || !authority) {
-        // Redirect to failure page
+        console.log("Payment cancelled or failed", { status, authority });
         return new Response(null, {
           status: 302,
-          headers: { Location: "https://t.me/YOUR_BOT_USERNAME?start=payment_failed" },
+          headers: { Location: getRedirectUrl(false) },
         });
       }
 
@@ -136,7 +166,7 @@ serve(async (req) => {
         console.error("Payment log not found:", authority);
         return new Response(null, {
           status: 302,
-          headers: { Location: "https://t.me/YOUR_BOT_USERNAME?start=payment_failed" },
+          headers: { Location: getRedirectUrl(false) },
         });
       }
 
@@ -152,6 +182,7 @@ serve(async (req) => {
       });
 
       const verifyData = await verifyResponse.json();
+      console.log("Verify response:", verifyData);
 
       if (verifyData.data?.code !== 100 && verifyData.data?.code !== 101) {
         // Payment failed
@@ -162,7 +193,7 @@ serve(async (req) => {
 
         return new Response(null, {
           status: 302,
-          headers: { Location: "https://t.me/YOUR_BOT_USERNAME?start=payment_failed" },
+          headers: { Location: getRedirectUrl(false) },
         });
       }
 
@@ -192,10 +223,12 @@ serve(async (req) => {
         { onConflict: "user_id" }
       );
 
+      console.log("Payment successful, subscription updated", { refId, userId: paymentLog.user_id });
+
       // Redirect to success page
       return new Response(null, {
         status: 302,
-        headers: { Location: `https://t.me/YOUR_BOT_USERNAME?start=payment_success_${refId}` },
+        headers: { Location: getRedirectUrl(true, refId) },
       });
     }
 
