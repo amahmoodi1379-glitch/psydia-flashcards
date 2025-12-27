@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { HelpCircle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { HelpCircle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface QuestionCardProps {
   questionId: string;
@@ -28,18 +29,22 @@ export function QuestionCard({
   const [showExplanation, setShowExplanation] = useState(false);
   const [usedDontKnow, setUsedDontKnow] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [pendingIndex, setPendingIndex] = useState<number | null>(null);
 
   const correctIndex = answerResult?.correctIndex ?? -1;
   const explanation = answerResult?.explanation;
 
-  const handleChoiceClick = async (index: number) => {
-    if (hasAnswered || isChecking) return;
-    
-    setSelectedIndex(index);
+  const checkAnswer = async (index: number) => {
     setIsChecking(true);
+    setHasError(false);
+    setPendingIndex(index);
+    
+    if (index !== -1) {
+      setSelectedIndex(index);
+    }
     
     try {
-      // Call RPC to check answer (correct_index never sent to client beforehand)
       const { data, error } = await supabase.rpc("check_answer", {
         _question_id: questionId,
         _selected_index: index,
@@ -50,41 +55,33 @@ export function QuestionCard({
       const result = data?.[0];
       if (result) {
         onAnswer(index, result.is_correct, result.correct_index, result.explanation || undefined);
+      } else {
+        throw new Error("No result returned");
       }
     } catch (err) {
       console.error("Error checking answer:", err);
-      // Fallback - still allow UI to proceed
-      onAnswer(index, false, -1, undefined);
+      setHasError(true);
+      toast.error("خطا در بررسی پاسخ. لطفاً دوباره تلاش کنید.");
     } finally {
       setIsChecking(false);
     }
   };
 
+  const handleChoiceClick = async (index: number) => {
+    if (hasAnswered || isChecking) return;
+    await checkAnswer(index);
+  };
+
   const handleDontKnow = async () => {
     if (hasAnswered || isChecking) return;
-    
     setUsedDontKnow(true);
     setSelectedIndex(null);
-    setIsChecking(true);
-    
-    try {
-      // Call RPC with -1 to get correct answer
-      const { data, error } = await supabase.rpc("check_answer", {
-        _question_id: questionId,
-        _selected_index: -1,
-      });
-      
-      if (error) throw error;
-      
-      const result = data?.[0];
-      if (result) {
-        onAnswer(-1, false, result.correct_index, result.explanation || undefined);
-      }
-    } catch (err) {
-      console.error("Error checking answer:", err);
-      onAnswer(-1, false, -1, undefined);
-    } finally {
-      setIsChecking(false);
+    await checkAnswer(-1);
+  };
+
+  const handleRetry = () => {
+    if (pendingIndex !== null) {
+      checkAnswer(pendingIndex);
     }
   };
 
@@ -92,6 +89,9 @@ export function QuestionCard({
     if (!hasAnswered) {
       if (isChecking && selectedIndex === index) {
         return "bg-secondary border-primary animate-pulse";
+      }
+      if (hasError && selectedIndex === index) {
+        return "bg-destructive/10 border-destructive";
       }
       return "bg-secondary hover:bg-secondary/80 border-transparent";
     }
@@ -111,6 +111,9 @@ export function QuestionCard({
     if (!hasAnswered) {
       if (isChecking && selectedIndex === index) {
         return <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0" />;
+      }
+      if (hasError && selectedIndex === index) {
+        return <AlertCircle className="w-5 h-5 text-destructive shrink-0" />;
       }
       return null;
     }
@@ -154,8 +157,19 @@ export function QuestionCard({
         ))}
       </div>
 
+      {/* Error Retry Button */}
+      {hasError && !hasAnswered && (
+        <button
+          onClick={handleRetry}
+          className="w-full p-3 rounded-xl border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all duration-200 flex items-center justify-center gap-2"
+        >
+          <RefreshCw className="w-5 h-5" />
+          <span className="font-medium">تلاش مجدد</span>
+        </button>
+      )}
+
       {/* Don't Know Button */}
-      {!hasAnswered && (
+      {!hasAnswered && !hasError && (
         <button
           onClick={handleDontKnow}
           disabled={isChecking}
