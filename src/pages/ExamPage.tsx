@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, RotateCcw, Clock, BookOpen, Loader2, Sparkles } from "lucide-react";
+import { PlayCircle, RotateCcw, Clock, BookOpen, Loader2, Star, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDueCount } from "@/hooks/useReviewQuestions";
 import { SubjectSelector } from "@/components/exam/SubjectSelector";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -21,6 +23,9 @@ export default function ExamPage() {
   const [sessionSize, setSessionSize] = useState(20);
   const [hasActiveSession] = useState(false);
   const { dueCount, newCount, total, isLoading } = useDueCount();
+  const { bookmarkCount } = useBookmarks();
+  const { hasFeature } = useSubscription();
+  const canBookmark = hasFeature("bookmarks");
 
   const handleStartDailyReview = () => {
     navigate("/review", { 
@@ -34,6 +39,16 @@ export default function ExamPage() {
 
   const handleResumeSession = () => {
     navigate("/review", { state: { resume: true } });
+  };
+
+  const handleStartBookmarksReview = () => {
+    navigate("/review", { 
+      state: { 
+        sessionSize: Math.min(sessionSize, bookmarkCount),
+        filter: { type: "bookmarks" },
+        title: "مرور نشان‌شده‌ها"
+      } 
+    });
   };
 
   const reviewableCount = dueCount + newCount;
@@ -160,6 +175,51 @@ export default function ExamPage() {
             </Button>
           </div>
         </section>
+
+        {/* Bookmarks Review Section - Only for advanced users */}
+        {user && (
+          <section 
+            className="mb-6 animate-fade-in"
+            style={{ animationDelay: "0.12s" }}
+          >
+            <div className={cn(
+              "bg-card rounded-2xl p-5 border border-border",
+              !canBookmark && "opacity-60"
+            )}>
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-14 h-14 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
+                  {canBookmark ? (
+                    <Star className="w-7 h-7 text-accent" />
+                  ) : (
+                    <Lock className="w-7 h-7 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold text-foreground mb-1">
+                    سوالات نشان‌شده
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {canBookmark 
+                      ? `${toPersianNumber(bookmarkCount)} سوال ذخیره شده`
+                      : "ویژه پلن پیشرفته"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full gap-2"
+                onClick={handleStartBookmarksReview}
+                disabled={!canBookmark || bookmarkCount === 0}
+              >
+                <Star className="w-5 h-5" />
+                {canBookmark ? "مرور نشان‌شده‌ها" : "نیاز به پلن پیشرفته"}
+              </Button>
+            </div>
+          </section>
+        )}
 
         {/* Subject Selection Section */}
         <section 
