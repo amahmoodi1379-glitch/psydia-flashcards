@@ -28,13 +28,25 @@ export default function ReviewPage() {
   const [isComplete, setIsComplete] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [correctCount, setCorrectCount] = useState(0);
+  const [answerResult, setAnswerResult] = useState<{
+    isCorrect: boolean;
+    correctIndex: number;
+    explanation?: string;
+  } | undefined>();
 
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
   const isBookmarked = currentQuestion ? bookmarkedIds.has(currentQuestion.id) : false;
 
-  const handleAnswer = async (selectedIndex: number, correct: boolean) => {
+  const handleAnswer = async (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => {
     setHasAnswered(true);
+    
+    setAnswerResult({
+      isCorrect: correct,
+      correctIndex,
+      explanation,
+    });
+    
     if (correct) {
       setCorrectCount((prev) => prev + 1);
     }
@@ -51,6 +63,7 @@ export default function ReviewPage() {
     } else {
       setCurrentIndex((prev) => prev + 1);
       setHasAnswered(false);
+      setAnswerResult(undefined);
     }
   };
 
@@ -185,12 +198,12 @@ export default function ReviewPage() {
           {currentQuestion && (
             <QuestionCard
               key={currentQuestion.id}
+              questionId={currentQuestion.id}
               question={currentQuestion.stem_text}
               choices={currentQuestion.choices}
-              correctIndex={currentQuestion.correct_index}
-              explanation={currentQuestion.explanation || undefined}
               onAnswer={handleAnswer}
               hasAnswered={hasAnswered}
+              answerResult={answerResult}
             />
           )}
         </div>

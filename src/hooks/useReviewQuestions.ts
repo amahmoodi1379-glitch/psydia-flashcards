@@ -6,8 +6,6 @@ export interface Question {
   id: string;
   stem_text: string;
   choices: string[];
-  correct_index: number;
-  explanation: string | null;
   subtopic_id: string;
 }
 
@@ -68,11 +66,10 @@ export function useReviewQuestions(
           }
         }
 
-        // Build base query
+        // Use questions_safe view - no correct_index exposed!
         let questionsQuery = supabase
-          .from("questions")
-          .select("id, stem_text, choices, correct_index, explanation, subtopic_id")
-          .eq("is_active", true);
+          .from("questions_safe")
+          .select("id, stem_text, choices, subtopic_id");
 
         // Apply subtopic filter if not daily review
         if (filter.type !== "daily" && subtopicIds.length > 0) {
@@ -208,11 +205,10 @@ export function useDueCount(filter?: ReviewFilter): {
           }
         }
 
-        // Build query
+        // Use questions_safe view
         let query = supabase
-          .from("questions")
-          .select("id")
-          .eq("is_active", true);
+          .from("questions_safe")
+          .select("id");
 
         if (subtopicIds.length > 0) {
           query = query.in("subtopic_id", subtopicIds);
