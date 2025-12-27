@@ -10,7 +10,7 @@ export interface Question {
 }
 
 export interface ReviewFilter {
-  type: "daily" | "subject" | "topic" | "subtopic";
+  type: "daily" | "subject" | "topic" | "subtopic" | "bookmarks";
   id?: string; // subject_id, topic_id, or subtopic_id
 }
 
@@ -39,6 +39,47 @@ export function useReviewQuestions(
       setError(null);
 
       try {
+        // Handle bookmarks filter
+        if (filter.type === "bookmarks" && user) {
+          const { data: bookmarks, error: bookmarksError } = await supabase
+            .from("bookmarks")
+            .select("question_id")
+            .eq("user_id", user.id);
+
+          if (bookmarksError) throw bookmarksError;
+
+          if (!bookmarks || bookmarks.length === 0) {
+            setQuestions([]);
+            setDueCount(0);
+            setNewCount(0);
+            setIsLoading(false);
+            return;
+          }
+
+          const bookmarkedIds = bookmarks.map((b) => b.question_id);
+
+          const { data: bookmarkedQuestions, error: qError } = await supabase
+            .from("questions_safe")
+            .select("id, stem_text, choices, subtopic_id")
+            .in("id", bookmarkedIds);
+
+          if (qError) throw qError;
+
+          const limited = (bookmarkedQuestions || []).slice(0, limit);
+          const parsed: Question[] = limited.map((q) => ({
+            ...q,
+            choices: Array.isArray(q.choices)
+              ? q.choices
+              : JSON.parse(q.choices as string),
+          }));
+
+          setQuestions(parsed);
+          setDueCount(parsed.length);
+          setNewCount(0);
+          setIsLoading(false);
+          return;
+        }
+
         // Get subtopic_ids based on filter
         let subtopicIds: string[] = [];
         

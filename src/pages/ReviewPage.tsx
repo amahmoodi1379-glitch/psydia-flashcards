@@ -3,11 +3,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Trophy, Star, Flag, Loader2 } from "lucide-react";
+import { ArrowRight, Trophy, Star, Flag, Loader2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReviewQuestions, ReviewFilter } from "@/hooks/useReviewQuestions";
 import { useRecordAnswer } from "@/hooks/useRecordAnswer";
-
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { useSubscription } from "@/hooks/useSubscription";
+import { toast } from "sonner";
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
   return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
@@ -22,11 +24,12 @@ export default function ReviewPage() {
   
   const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();
+  const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
+  const { hasFeature } = useSubscription();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [correctCount, setCorrectCount] = useState(0);
   const [answerResult, setAnswerResult] = useState<{
     isCorrect: boolean;
@@ -36,7 +39,8 @@ export default function ReviewPage() {
 
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
-  const isBookmarked = currentQuestion ? bookmarkedIds.has(currentQuestion.id) : false;
+  const isBookmarked = currentQuestion ? checkIsBookmarked(currentQuestion.id) : false;
+  const canBookmark = hasFeature("bookmarks");
 
   const handleAnswer = async (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => {
     setHasAnswered(true);
@@ -74,15 +78,12 @@ export default function ReviewPage() {
   const handleToggleBookmark = () => {
     if (!currentQuestion) return;
     
-    setBookmarkedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(currentQuestion.id)) {
-        next.delete(currentQuestion.id);
-      } else {
-        next.add(currentQuestion.id);
-      }
-      return next;
-    });
+    if (!canBookmark) {
+      toast.error("برای استفاده از نشان‌گذاری، پلن پیشرفته تهیه کنید");
+      return;
+    }
+    
+    toggleBookmark(currentQuestion.id);
   };
 
   const handleReport = () => {
@@ -175,9 +176,16 @@ export default function ReviewPage() {
               variant="ghost" 
               size="icon"
               onClick={handleToggleBookmark}
-              className={cn(isBookmarked && "text-accent")}
+              className={cn(
+                isBookmarked && canBookmark && "text-accent",
+                !canBookmark && "opacity-50"
+              )}
             >
-              <Star className={cn("w-5 h-5", isBookmarked && "fill-current")} />
+              {canBookmark ? (
+                <Star className={cn("w-5 h-5", isBookmarked && "fill-current")} />
+              ) : (
+                <Lock className="w-5 h-5" />
+              )}
             </Button>
             <Button variant="ghost" size="icon" onClick={handleReport}>
               <Flag className="w-5 h-5" />
