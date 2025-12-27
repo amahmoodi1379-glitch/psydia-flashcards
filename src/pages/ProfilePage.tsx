@@ -1,6 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { User, Moon, Sun, BookOpen, TrendingUp, Target, LogIn, LogOut } from "lucide-react";
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MasteryHeatmap } from "@/components/profile/MasteryHeatmap";
 import { ActivitySparkline } from "@/components/profile/ActivitySparkline";
@@ -8,6 +7,7 @@ import { SubjectProgress } from "@/components/profile/SubjectProgress";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfileStats } from "@/hooks/useProfileStats";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -18,16 +18,10 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { stats, isLoading } = useProfileStats();
-  const [isDarkMode, setIsDarkMode] = useState(true);
-
-  useEffect(() => {
-    // Check initial dark mode state
-    setIsDarkMode(document.body.classList.contains("dark"));
-  }, []);
+  const { resolvedTheme, setTheme } = useTheme();
 
   const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    document.body.classList.toggle("dark");
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
   const handleAuthAction = () => {
@@ -77,7 +71,7 @@ export default function ProfilePage() {
               onClick={toggleTheme}
               className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
             >
-              {isDarkMode ? (
+              {resolvedTheme === "dark" ? (
                 <Sun className="w-5 h-5 text-accent" />
               ) : (
                 <Moon className="w-5 h-5 text-primary" />
