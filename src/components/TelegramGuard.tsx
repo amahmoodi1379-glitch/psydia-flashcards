@@ -41,7 +41,7 @@ export function TelegramGuard({ children }: TelegramGuardProps) {
         <Button
           size="lg"
           className="gap-2"
-          onClick={() => window.open('https://t.me/psydiabot', '_blank')}
+          onClick={() => window.open('https://t.me/YOUR_BOT', '_blank')}
         >
           <Send className="h-5 w-5" />
           ورود از طریق تلگرام
