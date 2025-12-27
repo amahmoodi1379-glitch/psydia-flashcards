@@ -218,8 +218,7 @@ export default function SubscriptionPage() {
             <Button 
               className="w-full gap-2"
               onClick={() => {
-                // Open Telegram bot - replace with your bot username
-                window.open("https://t.me/YOUR_BOT_USERNAME", "_blank");
+                window.open("https://t.me/YOUR_BOT", "_blank");
               }}
             >
               <ExternalLink className="w-4 h-4" />
