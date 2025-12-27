@@ -15,9 +15,7 @@ import ReviewPage from "./pages/ReviewPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import SubjectsManager from "./pages/admin/SubjectsManager";
-import TopicsManager from "./pages/admin/TopicsManager";
-import SubtopicsManager from "./pages/admin/SubtopicsManager";
+import ContentManager from "./pages/admin/ContentManager";
 import QuestionsManager from "./pages/admin/QuestionsManager";
 import UsersManager from "./pages/admin/UsersManager";
 
@@ -50,9 +48,7 @@ const App = () => (
                 
                 {/* Admin routes - no Telegram guard */}
                 <Route path="/admin" element={<AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>} />
-                <Route path="/admin/subjects" element={<AdminGuard><AdminLayout><SubjectsManager /></AdminLayout></AdminGuard>} />
-                <Route path="/admin/topics" element={<AdminGuard><AdminLayout><TopicsManager /></AdminLayout></AdminGuard>} />
-                <Route path="/admin/subtopics" element={<AdminGuard><AdminLayout><SubtopicsManager /></AdminLayout></AdminGuard>} />
+                <Route path="/admin/content" element={<AdminGuard><AdminLayout><ContentManager /></AdminLayout></AdminGuard>} />
                 <Route path="/admin/questions" element={<AdminGuard><AdminLayout><QuestionsManager /></AdminLayout></AdminGuard>} />
                 <Route path="/admin/users" element={<AdminGuard><AdminLayout><UsersManager /></AdminLayout></AdminGuard>} />
                 

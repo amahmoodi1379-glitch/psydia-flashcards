@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Pencil, Trash2, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Eye, EyeOff, Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Question {
@@ -30,6 +30,8 @@ interface Subtopic {
   topics?: { title: string; subjects?: { title: string } };
 }
 
+const ITEMS_PER_PAGE = 20;
+
 export default function QuestionsManager() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
@@ -40,45 +42,74 @@ export default function QuestionsManager() {
     stem_text: '',
     subtopic_id: '',
     choices: ['', '', '', ''],
-    correct_index: 0,
+    correct_index: -1,
     explanation: '',
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [lastUsedSubtopicId, setLastUsedSubtopicId] = useState('');
 
-  const fetchData = async () => {
-    const [questionsRes, subtopicsRes] = await Promise.all([
-      supabase
-        .from('questions')
-        .select('*, subtopics(title, topics(title, subjects(title)))')
-        .order('created_at', { ascending: false })
-        .limit(100),
-      supabase.from('subtopics').select('id, title, topics(title, subjects(title))').order('display_order'),
-    ]);
+  const fetchQuestions = async (page: number, search: string) => {
+    setIsLoading(true);
+    const from = (page - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
 
-    if (questionsRes.error) {
+    let query = supabase
+      .from('questions')
+      .select('*, subtopics(title, topics(title, subjects(title)))', { count: 'exact' });
+
+    if (search.trim()) {
+      query = query.ilike('stem_text', `%${search}%`);
+    }
+
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
       toast.error('خطا در دریافت سوالات');
     } else {
-      setQuestions(questionsRes.data || []);
+      setQuestions(data || []);
+      setTotalCount(count || 0);
     }
-
-    if (!subtopicsRes.error) {
-      setSubtopics(subtopicsRes.data || []);
-    }
-
     setIsLoading(false);
   };
 
+  const fetchSubtopics = async () => {
+    const { data, error } = await supabase
+      .from('subtopics')
+      .select('id, title, topics(title, subjects(title))')
+      .order('display_order');
+
+    if (!error) {
+      setSubtopics(data || []);
+    }
+  };
+
   useEffect(() => {
-    fetchData();
+    fetchSubtopics();
   }, []);
+
+  useEffect(() => {
+    fetchQuestions(currentPage, searchQuery);
+  }, [currentPage]);
+
+  const handleSearch = () => {
+    setCurrentPage(1);
+    fetchQuestions(1, searchQuery);
+  };
+
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   const openCreateDialog = () => {
     setEditingQuestion(null);
     setFormData({
       stem_text: '',
-      subtopic_id: subtopics[0]?.id || '',
+      subtopic_id: lastUsedSubtopicId,
       choices: ['', '', '', ''],
-      correct_index: 0,
+      correct_index: -1,
       explanation: '',
     });
     setIsDialogOpen(true);
@@ -92,7 +123,7 @@ export default function QuestionsManager() {
     setFormData({
       stem_text: question.stem_text,
       subtopic_id: question.subtopic_id,
-      choices: [...choices, '', '', '', ''].slice(0, 4),
+      choices: [...choices, '', '', '', ''].slice(0, 4) as string[],
       correct_index: question.correct_index,
       explanation: question.explanation || '',
     });
@@ -100,14 +131,24 @@ export default function QuestionsManager() {
   };
 
   const handleSave = async () => {
-    if (!formData.stem_text.trim() || !formData.subtopic_id) {
-      toast.error('متن سوال و ساب‌تاپیک الزامی است');
+    if (!formData.subtopic_id) {
+      toast.error('لطفاً ساب‌تاپیک را انتخاب کنید');
+      return;
+    }
+
+    if (!formData.stem_text.trim()) {
+      toast.error('متن سوال الزامی است');
       return;
     }
 
     const validChoices = formData.choices.filter((c) => c.trim());
     if (validChoices.length < 2) {
       toast.error('حداقل دو گزینه الزامی است');
+      return;
+    }
+
+    if (formData.correct_index < 0 || formData.correct_index >= validChoices.length) {
+      toast.error('لطفاً گزینه صحیح را انتخاب کنید');
       return;
     }
 
@@ -130,15 +171,25 @@ export default function QuestionsManager() {
 
         if (error) throw error;
         toast.success('سوال با موفقیت ویرایش شد');
+        setIsDialogOpen(false);
       } else {
         const { error } = await supabase.from('questions').insert(payload);
 
         if (error) throw error;
         toast.success('سوال با موفقیت اضافه شد');
+        
+        // Keep dialog open, reset only question-specific fields
+        setLastUsedSubtopicId(formData.subtopic_id);
+        setFormData(prev => ({
+          ...prev,
+          stem_text: '',
+          choices: ['', '', '', ''],
+          correct_index: -1,
+          explanation: '',
+        }));
       }
 
-      setIsDialogOpen(false);
-      fetchData();
+      fetchQuestions(currentPage, searchQuery);
     } catch (error) {
       console.error(error);
       toast.error('خطا در ذخیره سوال');
@@ -157,7 +208,7 @@ export default function QuestionsManager() {
       console.error(error);
     } else {
       toast.success('سوال حذف شد');
-      fetchData();
+      fetchQuestions(currentPage, searchQuery);
     }
   };
 
@@ -171,7 +222,7 @@ export default function QuestionsManager() {
       toast.error('خطا در تغییر وضعیت');
     } else {
       toast.success(currentStatus ? 'سوال غیرفعال شد' : 'سوال فعال شد');
-      fetchData();
+      fetchQuestions(currentPage, searchQuery);
     }
   };
 
@@ -187,7 +238,21 @@ export default function QuestionsManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle>لیست سوالات (آخرین ۱۰۰ مورد)</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>لیست سوالات ({totalCount.toLocaleString('fa-IR')} مورد)</CardTitle>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="جستجو در متن سوال..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="w-64"
+              />
+              <Button variant="outline" size="icon" onClick={handleSearch}>
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -195,61 +260,90 @@ export default function QuestionsManager() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>متن سوال</TableHead>
-                  <TableHead>ساب‌تاپیک</TableHead>
-                  <TableHead>وضعیت</TableHead>
-                  <TableHead className="w-[120px]">عملیات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {questions.map((question) => (
-                  <TableRow key={question.id}>
-                    <TableCell className="max-w-xs truncate">{question.stem_text}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {question.subtopics?.topics?.subjects?.title} → {question.subtopics?.topics?.title} → {question.subtopics?.title}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded text-xs ${question.is_active ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                        {question.is_active ? 'فعال' : 'غیرفعال'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => toggleActive(question.id, question.is_active)}
-                          title={question.is_active ? 'غیرفعال کردن' : 'فعال کردن'}
-                        >
-                          {question.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(question)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(question.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {questions.length === 0 && (
+            <>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                      هیچ سوالی یافت نشد
-                    </TableCell>
+                    <TableHead>متن سوال</TableHead>
+                    <TableHead>ساب‌تاپیک</TableHead>
+                    <TableHead>وضعیت</TableHead>
+                    <TableHead className="w-[120px]">عملیات</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {questions.map((question) => (
+                    <TableRow key={question.id}>
+                      <TableCell className="max-w-xs truncate">{question.stem_text}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {question.subtopics?.topics?.subjects?.title} → {question.subtopics?.topics?.title} → {question.subtopics?.title}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs ${question.is_active ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                          {question.is_active ? 'فعال' : 'غیرفعال'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => toggleActive(question.id, question.is_active)}
+                            title={question.is_active ? 'غیرفعال کردن' : 'فعال کردن'}
+                          >
+                            {question.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(question)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(question.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {questions.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                        هیچ سوالی یافت نشد
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    قبلی
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-4">
+                    صفحه {currentPage.toLocaleString('fa-IR')} از {totalPages.toLocaleString('fa-IR')}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    بعدی
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -261,13 +355,15 @@ export default function QuestionsManager() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="subtopic">ساب‌تاپیک</Label>
+              <Label htmlFor="subtopic">
+                ساب‌تاپیک <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={formData.subtopic_id}
                 onValueChange={(value) => setFormData({ ...formData, subtopic_id: value })}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="انتخاب ساب‌تاپیک" />
+                <SelectTrigger className={!formData.subtopic_id ? 'border-destructive' : ''}>
+                  <SelectValue placeholder="انتخاب ساب‌تاپیک (الزامی)" />
                 </SelectTrigger>
                 <SelectContent>
                   {subtopics.map((subtopic) => (
@@ -291,9 +387,12 @@ export default function QuestionsManager() {
             </div>
 
             <div className="space-y-3">
-              <Label>گزینه‌ها (گزینه صحیح را انتخاب کنید)</Label>
+              <Label>
+                گزینه‌ها <span className="text-destructive">*</span>
+                <span className="text-sm text-muted-foreground mr-2">(گزینه صحیح را انتخاب کنید)</span>
+              </Label>
               <RadioGroup
-                value={formData.correct_index.toString()}
+                value={formData.correct_index >= 0 ? formData.correct_index.toString() : ''}
                 onValueChange={(value) => setFormData({ ...formData, correct_index: parseInt(value) })}
               >
                 {formData.choices.map((choice, index) => (
@@ -312,6 +411,9 @@ export default function QuestionsManager() {
                   </div>
                 ))}
               </RadioGroup>
+              {formData.correct_index < 0 && (
+                <p className="text-sm text-destructive">گزینه صحیح انتخاب نشده است</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -327,11 +429,11 @@ export default function QuestionsManager() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              انصراف
+              بستن
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-              {editingQuestion ? 'ذخیره تغییرات' : 'افزودن'}
+              {editingQuestion ? 'ذخیره تغییرات' : 'افزودن سوال'}
             </Button>
           </DialogFooter>
         </DialogContent>
