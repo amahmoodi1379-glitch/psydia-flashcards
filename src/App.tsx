@@ -12,6 +12,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import Index from "./pages/Index";
 import ProfilePage from "./pages/ProfilePage";
 import ReviewPage from "./pages/ReviewPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ContentManager from "./pages/admin/ContentManager";
@@ -41,6 +42,7 @@ const App = () => (
                 <Route path="/" element={<TelegramGuard><Index /></TelegramGuard>} />
                 <Route path="/profile" element={<TelegramGuard><ProfilePage /></TelegramGuard>} />
                 <Route path="/review" element={<TelegramGuard><ReviewPage /></TelegramGuard>} />
+                <Route path="/subscription" element={<TelegramGuard><SubscriptionPage /></TelegramGuard>} />
                 
                 {/* Admin routes - no Telegram guard, uses email auth */}
                 <Route path="/admin" element={<AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>} />
