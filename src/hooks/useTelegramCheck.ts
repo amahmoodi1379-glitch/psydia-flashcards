@@ -26,6 +26,13 @@ export function useTelegramCheck() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Bypass Telegram check in development mode
+    if (import.meta.env.DEV) {
+      setIsTelegram(true);
+      setIsLoading(false);
+      return;
+    }
+
     const checkTelegram = () => {
       const tg = window.Telegram?.WebApp;
       // Check if we're inside Telegram Mini App
