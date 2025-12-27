@@ -1,13 +1,15 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { User, Moon, Sun, BookOpen, TrendingUp, Target, LogIn, LogOut } from "lucide-react";
+import { User, Moon, Sun, BookOpen, TrendingUp, Target, LogIn, LogOut, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { MasteryHeatmap } from "@/components/profile/MasteryHeatmap";
+import { HierarchicalMasteryMap } from "@/components/profile/HierarchicalMasteryMap";
 import { ActivitySparkline } from "@/components/profile/ActivitySparkline";
 import { SubjectProgress } from "@/components/profile/SubjectProgress";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfileStats } from "@/hooks/useProfileStats";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { Card, CardContent } from "@/components/ui/card";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -19,6 +21,7 @@ export default function ProfilePage() {
   const { user, signOut } = useAuth();
   const { stats, isLoading } = useProfileStats();
   const { resolvedTheme, setTheme } = useTheme();
+  const { hasFeature } = useSubscription();
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -31,6 +34,8 @@ export default function ProfilePage() {
       navigate("/auth");
     }
   };
+
+  const canViewMasteryMap = hasFeature("mastery_map");
 
   return (
     <AppLayout>
@@ -105,7 +110,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Mastery Heatmap */}
+        {/* Mastery Map - Hierarchical for advanced users */}
         <div 
           className="mb-6 animate-fade-in" 
           style={{ animationDelay: "0.15s" }}
@@ -114,7 +119,21 @@ export default function ProfilePage() {
             <Target className="w-5 h-5 text-primary" />
             <h2 className="font-semibold text-foreground">نقشه تسلط</h2>
           </div>
-          <MasteryHeatmap />
+          {canViewMasteryMap ? (
+            <HierarchicalMasteryMap />
+          ) : (
+            <Card className="border-dashed border-2 border-muted">
+              <CardContent className="p-6 text-center">
+                <Lock className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground mb-3">
+                  نقشه تسلط سلسله‌مراتبی مخصوص اشتراک پیشرفته است
+                </p>
+                <Button variant="outline" size="sm" onClick={() => navigate("/subscription")}>
+                  ارتقای اشتراک
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Activity Sparkline */}

@@ -63,6 +63,128 @@ export type Database = {
           },
         ]
       }
+      bookmarks: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookmarks_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookmarks_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookmarks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_usage: {
+        Row: {
+          created_at: string
+          id: string
+          question_count: number
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_count?: number
+          usage_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_count?: number
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_logs: {
+        Row: {
+          amount: number
+          authority: string
+          created_at: string
+          duration: Database["public"]["Enums"]["subscription_duration"]
+          id: string
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          ref_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          authority: string
+          created_at?: string
+          duration: Database["public"]["Enums"]["subscription_duration"]
+          id?: string
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          ref_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          authority?: string
+          created_at?: string
+          duration?: Database["public"]["Enums"]["subscription_duration"]
+          id?: string
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          ref_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -154,6 +276,53 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          daily_limit: number
+          duration: Database["public"]["Enums"]["subscription_duration"] | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          started_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_limit?: number
+          duration?: Database["public"]["Enums"]["subscription_duration"] | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          started_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_limit?: number
+          duration?: Database["public"]["Enums"]["subscription_duration"] | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          started_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subtopics: {
         Row: {
@@ -340,6 +509,15 @@ export type Database = {
       }
     }
     Functions: {
+      admin_update_subscription: {
+        Args: {
+          _duration?: Database["public"]["Enums"]["subscription_duration"]
+          _expires_at?: string
+          _plan: Database["public"]["Enums"]["subscription_plan"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       check_answer: {
         Args: { _question_id: string; _selected_index: number }
         Returns: {
@@ -358,6 +536,20 @@ export type Database = {
           id: string
           telegram_id: string
           updated_at: string
+        }[]
+      }
+      get_hierarchical_mastery: {
+        Args: { _user_id: string }
+        Returns: {
+          subject_id: string
+          subject_mastery: number
+          subject_name: string
+          subtopic_id: string
+          subtopic_mastery: number
+          subtopic_name: string
+          topic_id: string
+          topic_mastery: number
+          topic_name: string
         }[]
       }
       get_subject_progress: {
@@ -384,6 +576,16 @@ export type Database = {
           total_answered: number
         }[]
       }
+      get_user_subscription: {
+        Args: { _user_id: string }
+        Returns: {
+          daily_limit: number
+          expires_at: string
+          is_active: boolean
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          today_usage: number
+        }[]
+      }
       get_weekly_activity: {
         Args: { _user_id: string }
         Returns: {
@@ -398,9 +600,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_daily_usage: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
+      subscription_duration: "monthly" | "quarterly"
+      subscription_plan: "free" | "basic" | "advanced" | "smart"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -529,6 +734,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      subscription_duration: ["monthly", "quarterly"],
+      subscription_plan: ["free", "basic", "advanced", "smart"],
     },
   },
 } as const
