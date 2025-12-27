@@ -48,6 +48,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "attempt_logs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "attempt_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -255,6 +262,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_question_state_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_question_state_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -286,9 +300,66 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      questions_safe: {
+        Row: {
+          choices: Json | null
+          created_at: string | null
+          explanation: string | null
+          id: string | null
+          is_active: boolean | null
+          stem_text: string | null
+          subtopic_id: string | null
+        }
+        Insert: {
+          choices?: Json | null
+          created_at?: string | null
+          explanation?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          stem_text?: string | null
+          subtopic_id?: string | null
+        }
+        Update: {
+          choices?: Json | null
+          created_at?: string | null
+          explanation?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          stem_text?: string | null
+          subtopic_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_subtopic_id_fkey"
+            columns: ["subtopic_id"]
+            isOneToOne: false
+            referencedRelation: "subtopics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      check_answer: {
+        Args: { _question_id: string; _selected_index: number }
+        Returns: {
+          correct_index: number
+          explanation: string
+          is_correct: boolean
+        }[]
+      }
+      get_admin_users_stats: {
+        Args: never
+        Returns: {
+          attempt_count: number
+          correct_count: number
+          created_at: string
+          display_name: string
+          id: string
+          telegram_id: string
+          updated_at: string
+        }[]
+      }
       get_subject_progress: {
         Args: { _user_id: string }
         Returns: {
