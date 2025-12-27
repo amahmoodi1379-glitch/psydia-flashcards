@@ -1,43 +1,98 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { HelpCircle, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { HelpCircle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QuestionCardProps {
+  questionId: string;
   question: string;
   choices: string[];
-  correctIndex: number;
-  explanation?: string;
-  onAnswer: (selectedIndex: number, correct: boolean) => void;
+  onAnswer: (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => void;
   hasAnswered: boolean;
+  answerResult?: {
+    isCorrect: boolean;
+    correctIndex: number;
+    explanation?: string;
+  };
 }
 
 export function QuestionCard({
+  questionId,
   question,
   choices,
-  correctIndex,
-  explanation,
   onAnswer,
   hasAnswered,
+  answerResult,
 }: QuestionCardProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [usedDontKnow, setUsedDontKnow] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
 
-  const handleChoiceClick = (index: number) => {
-    if (hasAnswered) return;
+  const correctIndex = answerResult?.correctIndex ?? -1;
+  const explanation = answerResult?.explanation;
+
+  const handleChoiceClick = async (index: number) => {
+    if (hasAnswered || isChecking) return;
+    
     setSelectedIndex(index);
-    onAnswer(index, index === correctIndex);
+    setIsChecking(true);
+    
+    try {
+      // Call RPC to check answer (correct_index never sent to client beforehand)
+      const { data, error } = await supabase.rpc("check_answer", {
+        _question_id: questionId,
+        _selected_index: index,
+      });
+      
+      if (error) throw error;
+      
+      const result = data?.[0];
+      if (result) {
+        onAnswer(index, result.is_correct, result.correct_index, result.explanation || undefined);
+      }
+    } catch (err) {
+      console.error("Error checking answer:", err);
+      // Fallback - still allow UI to proceed
+      onAnswer(index, false, -1, undefined);
+    } finally {
+      setIsChecking(false);
+    }
   };
 
-  const handleDontKnow = () => {
-    if (hasAnswered) return;
+  const handleDontKnow = async () => {
+    if (hasAnswered || isChecking) return;
+    
     setUsedDontKnow(true);
     setSelectedIndex(null);
-    onAnswer(-1, false);
+    setIsChecking(true);
+    
+    try {
+      // Call RPC with -1 to get correct answer
+      const { data, error } = await supabase.rpc("check_answer", {
+        _question_id: questionId,
+        _selected_index: -1,
+      });
+      
+      if (error) throw error;
+      
+      const result = data?.[0];
+      if (result) {
+        onAnswer(-1, false, result.correct_index, result.explanation || undefined);
+      }
+    } catch (err) {
+      console.error("Error checking answer:", err);
+      onAnswer(-1, false, -1, undefined);
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const getChoiceStyle = (index: number) => {
     if (!hasAnswered) {
+      if (isChecking && selectedIndex === index) {
+        return "bg-secondary border-primary animate-pulse";
+      }
       return "bg-secondary hover:bg-secondary/80 border-transparent";
     }
 
@@ -53,7 +108,12 @@ export function QuestionCard({
   };
 
   const getChoiceIcon = (index: number) => {
-    if (!hasAnswered) return null;
+    if (!hasAnswered) {
+      if (isChecking && selectedIndex === index) {
+        return <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0" />;
+      }
+      return null;
+    }
 
     if (index === correctIndex) {
       return <CheckCircle2 className="w-5 h-5 text-success shrink-0" />;
@@ -81,11 +141,11 @@ export function QuestionCard({
           <button
             key={index}
             onClick={() => handleChoiceClick(index)}
-            disabled={hasAnswered}
+            disabled={hasAnswered || isChecking}
             className={cn(
               "w-full p-4 rounded-xl border-2 text-right transition-all duration-200 flex items-center gap-3",
               getChoiceStyle(index),
-              !hasAnswered && "active:scale-[0.98]"
+              !hasAnswered && !isChecking && "active:scale-[0.98]"
             )}
           >
             <span className="flex-1 font-medium">{choice}</span>
@@ -98,9 +158,17 @@ export function QuestionCard({
       {!hasAnswered && (
         <button
           onClick={handleDontKnow}
-          className="w-full p-3 rounded-xl border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-all duration-200 flex items-center justify-center gap-2"
+          disabled={isChecking}
+          className={cn(
+            "w-full p-3 rounded-xl border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-all duration-200 flex items-center justify-center gap-2",
+            isChecking && "opacity-50 cursor-not-allowed"
+          )}
         >
-          <HelpCircle className="w-5 h-5" />
+          {isChecking && usedDontKnow ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <HelpCircle className="w-5 h-5" />
+          )}
           <span className="font-medium">نمی‌دانم</span>
         </button>
       )}
@@ -132,11 +200,11 @@ export function QuestionCard({
       {hasAnswered && (
         <div className={cn(
           "text-center py-2 animate-fade-in",
-          selectedIndex === correctIndex ? "text-success" : "text-destructive"
+          answerResult?.isCorrect ? "text-success" : "text-destructive"
         )}>
           {usedDontKnow ? (
             <p className="font-medium text-muted-foreground">پاسخ صحیح نمایش داده شد</p>
-          ) : selectedIndex === correctIndex ? (
+          ) : answerResult?.isCorrect ? (
             <p className="font-medium">آفرین! پاسخ صحیح است ✓</p>
           ) : (
             <p className="font-medium">پاسخ اشتباه است ✗</p>

@@ -1,68 +1,10 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-
-interface UserProfile {
-  id: string;
-  display_name: string | null;
-  telegram_id: string | null;
-  created_at: string;
-  updated_at: string;
-  attempt_count?: number;
-  correct_count?: number;
-}
+import { useUsersStats } from '@/hooks/useUsersStats';
 
 export default function UsersManager() {
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        // Fetch profiles
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (profilesError) throw profilesError;
-
-        // Fetch attempt counts for each user
-        const userStats = await Promise.all(
-          (profiles || []).map(async (profile) => {
-            const { count: attemptCount } = await supabase
-              .from('attempt_logs')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', profile.id);
-
-            const { count: correctCount } = await supabase
-              .from('attempt_logs')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', profile.id)
-              .eq('is_correct', true);
-
-            return {
-              ...profile,
-              attempt_count: attemptCount || 0,
-              correct_count: correctCount || 0,
-            };
-          })
-        );
-
-        setUsers(userStats);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        toast.error('خطا در دریافت کاربران');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, []);
+  const { data: users = [], isLoading } = useUsersStats();
 
   const getAccuracy = (correct: number, total: number) => {
     if (total === 0) return '-';
@@ -102,9 +44,9 @@ export default function UsersManager() {
                   <TableRow key={user.id}>
                     <TableCell>{user.display_name || '-'}</TableCell>
                     <TableCell className="font-mono text-sm">{user.telegram_id || '-'}</TableCell>
-                    <TableCell>{user.attempt_count?.toLocaleString('fa-IR')}</TableCell>
-                    <TableCell>{user.correct_count?.toLocaleString('fa-IR')}</TableCell>
-                    <TableCell>{getAccuracy(user.correct_count || 0, user.attempt_count || 0)}</TableCell>
+                    <TableCell>{user.attempt_count.toLocaleString('fa-IR')}</TableCell>
+                    <TableCell>{user.correct_count.toLocaleString('fa-IR')}</TableCell>
+                    <TableCell>{getAccuracy(user.correct_count, user.attempt_count)}</TableCell>
                     <TableCell>{new Date(user.created_at).toLocaleDateString('fa-IR')}</TableCell>
                     <TableCell>{new Date(user.updated_at).toLocaleDateString('fa-IR')}</TableCell>
                   </TableRow>
