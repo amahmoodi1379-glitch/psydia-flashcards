@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -10,96 +10,63 @@ interface SubjectProgressData {
 
 export function useSubjectProgress() {
   const { user } = useAuth();
-  const [subjects, setSubjects] = useState<SubjectProgressData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProgress = async () => {
-      try {
-        // Fetch all subjects
+  const { data: subjects, isLoading } = useQuery({
+    queryKey: ["subject-progress", user?.id],
+    queryFn: async (): Promise<SubjectProgressData[]> => {
+      if (!user) {
+        // For guests, just get total counts per subject
         const { data: allSubjects } = await supabase
           .from("subjects")
-          .select("id, title")
+          .select("id, title, display_order")
           .order("display_order");
 
-        if (!allSubjects || allSubjects.length === 0) {
-          setSubjects([]);
-          setIsLoading(false);
-          return;
-        }
+        if (!allSubjects) return [];
 
-        // Fetch topics for each subject
-        const { data: topics } = await supabase
-          .from("topics")
-          .select("id, subject_id");
+        // Get question counts per subject with JOINs
+        const result: SubjectProgressData[] = [];
+        for (const subject of allSubjects) {
+          const { count } = await supabase
+            .from("questions")
+            .select("id", { count: "exact", head: true })
+            .eq("is_active", true)
+            .in(
+              "subtopic_id",
+              (await supabase
+                .from("subtopics")
+                .select("id")
+                .in(
+                  "topic_id",
+                  (await supabase.from("topics").select("id").eq("subject_id", subject.id)).data?.map(t => t.id) || []
+                )).data?.map(st => st.id) || []
+            );
 
-        // Fetch subtopics for each topic
-        const { data: subtopics } = await supabase
-          .from("subtopics")
-          .select("id, topic_id");
-
-        // Fetch all questions
-        const { data: questions } = await supabase
-          .from("questions")
-          .select("id, subtopic_id")
-          .eq("is_active", true);
-
-        // Build mapping: subject_id -> question_ids
-        const subjectQuestions = new Map<string, string[]>();
-        
-        allSubjects.forEach((s) => {
-          subjectQuestions.set(s.id, []);
-        });
-
-        if (topics && subtopics && questions) {
-          questions.forEach((q) => {
-            const subtopic = subtopics.find((st) => st.id === q.subtopic_id);
-            if (subtopic) {
-              const topic = topics.find((t) => t.id === subtopic.topic_id);
-              if (topic && subjectQuestions.has(topic.subject_id)) {
-                subjectQuestions.get(topic.subject_id)!.push(q.id);
-              }
-            }
+          result.push({
+            name: subject.title,
+            progress: 0,
+            total: count || 0,
           });
         }
-
-        // Get user's answered questions
-        let answeredQuestionIds = new Set<string>();
-        
-        if (user) {
-          const { data: userStates } = await supabase
-            .from("user_question_state")
-            .select("question_id")
-            .eq("user_id", user.id);
-
-          if (userStates) {
-            answeredQuestionIds = new Set(userStates.map((s) => s.question_id));
-          }
-        }
-
-        // Calculate progress for each subject
-        const result = allSubjects.map((subject) => {
-          const questionIds = subjectQuestions.get(subject.id) || [];
-          const total = questionIds.length;
-          const progress = questionIds.filter((id) => answeredQuestionIds.has(id)).length;
-
-          return {
-            name: subject.title,
-            progress,
-            total,
-          };
-        });
-
-        setSubjects(result);
-      } catch (error) {
-        console.error("Error fetching subject progress:", error);
-      } finally {
-        setIsLoading(false);
+        return result;
       }
-    };
 
-    fetchProgress();
-  }, [user]);
+      const { data, error } = await supabase.rpc("get_subject_progress", {
+        _user_id: user.id,
+      });
 
-  return { subjects, isLoading };
+      if (error) {
+        console.error("Error fetching subject progress:", error);
+        return [];
+      }
+
+      return (data || []).map((row: { subject_name: string; answered_count: number; total_count: number }) => ({
+        name: row.subject_name,
+        progress: Number(row.answered_count) || 0,
+        total: Number(row.total_count) || 0,
+      }));
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
+
+  return { subjects: subjects || [], isLoading };
 }
