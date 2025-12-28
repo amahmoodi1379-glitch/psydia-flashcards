@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,12 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 
 const ITEMS_PER_PAGE = 20;
+
+// Duration to days mapping
+const DURATION_DAYS: Record<string, number> = {
+  monthly: 30,
+  quarterly: 90,
+};
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'رایگان',
@@ -56,6 +62,13 @@ export default function UsersManager() {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredUsers, currentPage]);
+
+  // Auto-update expiryDays when duration changes (only for new subscriptions or explicit change)
+  const handleDurationChange = (newDuration: string) => {
+    setSelectedDuration(newDuration);
+    // Auto-set days based on duration
+    setExpiryDays(String(DURATION_DAYS[newDuration] || 30));
+  };
 
   const getAccuracy = (correct: number, total: number) => {
     if (total === 0) return '-';
@@ -296,7 +309,7 @@ export default function UsersManager() {
                 <>
                   <div className="space-y-2">
                     <Label>نوع اشتراک</Label>
-                    <Select value={selectedDuration} onValueChange={setSelectedDuration}>
+                    <Select value={selectedDuration} onValueChange={handleDurationChange}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
