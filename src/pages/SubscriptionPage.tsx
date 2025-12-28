@@ -120,16 +120,12 @@ export default function SubscriptionPage() {
     setPurchasingPlan(`${planId}-${duration}`);
     
     try {
-      const { data, error } = await supabase.functions.invoke("zarinpal-payment", {
+      const { data, error } = await supabase.functions.invoke("zarinpal-payment?action=create", {
         body: {
           user_id: user.id,
           plan: planId,
           duration: duration,
           callback_type: "miniapp",
-        },
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
         },
       });
 
