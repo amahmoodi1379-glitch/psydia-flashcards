@@ -138,6 +138,44 @@ export type Database = {
           },
         ]
       }
+      monthly_leaderboard: {
+        Row: {
+          correct_count: number
+          id: string
+          month_start: string
+          score: number
+          total_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          correct_count?: number
+          id?: string
+          month_start: string
+          score?: number
+          total_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          correct_count?: number
+          id?: string
+          month_start?: string
+          score?: number
+          total_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_leaderboard_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_logs: {
         Row: {
           amount: number
@@ -467,6 +505,44 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_leaderboard: {
+        Row: {
+          correct_count: number
+          id: string
+          score: number
+          total_count: number
+          updated_at: string
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          correct_count?: number
+          id?: string
+          score?: number
+          total_count?: number
+          updated_at?: string
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          correct_count?: number
+          id?: string
+          score?: number
+          total_count?: number
+          updated_at?: string
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_leaderboard_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       questions_safe: {
@@ -518,6 +594,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      calculate_leaderboard_score: {
+        Args: { p_correct: number; p_total: number }
+        Returns: number
+      }
       check_answer: {
         Args: { _question_id: string; _selected_index: number }
         Returns: {
@@ -566,6 +646,19 @@ export type Database = {
           topic_name: string
         }[]
       }
+      get_monthly_leaderboard: {
+        Args: { p_month_start?: string }
+        Returns: {
+          accuracy: number
+          avatar_url: string
+          correct_count: number
+          display_name: string
+          rank: number
+          score: number
+          total_count: number
+          user_id: string
+        }[]
+      }
       get_subject_progress: {
         Args: { _user_id: string }
         Returns: {
@@ -579,6 +672,16 @@ export type Database = {
         Returns: {
           mastery_score: number
           subtopic_name: string
+        }[]
+      }
+      get_user_monthly_rank: {
+        Args: { p_month_start?: string; p_user_id: string }
+        Returns: {
+          accuracy: number
+          correct_count: number
+          rank: number
+          score: number
+          total_count: number
         }[]
       }
       get_user_profile_stats: {
@@ -600,11 +703,34 @@ export type Database = {
           today_usage: number
         }[]
       }
+      get_user_weekly_rank: {
+        Args: { p_user_id: string; p_week_start?: string }
+        Returns: {
+          accuracy: number
+          correct_count: number
+          rank: number
+          score: number
+          total_count: number
+        }[]
+      }
       get_weekly_activity: {
         Args: { _user_id: string }
         Returns: {
           activity_count: number
           activity_date: string
+        }[]
+      }
+      get_weekly_leaderboard: {
+        Args: { p_week_start?: string }
+        Returns: {
+          accuracy: number
+          avatar_url: string
+          correct_count: number
+          display_name: string
+          rank: number
+          score: number
+          total_count: number
+          user_id: string
         }[]
       }
       has_role: {
