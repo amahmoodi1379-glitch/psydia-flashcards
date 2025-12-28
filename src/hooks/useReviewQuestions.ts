@@ -210,10 +210,11 @@ export function useReviewQuestions(
           );
 
           const now = new Date();
-          
-          // Separate due and new questions
+
+          // Separate due, new, and scheduled (not-due) questions
           const dueQuestions: typeof allQuestions = [];
           const newQuestions: typeof allQuestions = [];
+          const scheduled: Array<{ q: (typeof allQuestions)[number]; nextReviewAt: string }> = [];
 
           allQuestions.forEach((q) => {
             const nextReview = stateMap.get(q.id);
@@ -221,6 +222,8 @@ export function useReviewQuestions(
               newQuestions.push(q);
             } else if (new Date(nextReview) <= now) {
               dueQuestions.push(q);
+            } else {
+              scheduled.push({ q, nextReviewAt: nextReview });
             }
           });
 
@@ -228,13 +231,22 @@ export function useReviewQuestions(
           setNewCount(newQuestions.length);
 
           // Prioritize due questions, then add new ones
-          const orderedQuestions = [...dueQuestions, ...newQuestions].slice(0, limit);
+          let orderedQuestions = [...dueQuestions, ...newQuestions];
 
-          const parsed: Question[] = orderedQuestions.map((q) => ({
+          // If nothing is due/new (common after user has answered everything recently),
+          // fall back to the closest upcoming reviews so the user can still practice.
+          if (orderedQuestions.length === 0 && scheduled.length > 0) {
+            scheduled.sort(
+              (a, b) => new Date(a.nextReviewAt).getTime() - new Date(b.nextReviewAt).getTime()
+            );
+            orderedQuestions = scheduled.map((s) => s.q);
+          }
+
+          const finalQuestions = orderedQuestions.slice(0, limit);
+
+          const parsed: Question[] = finalQuestions.map((q) => ({
             ...q,
-            choices: Array.isArray(q.choices)
-              ? q.choices
-              : JSON.parse(q.choices as string),
+            choices: Array.isArray(q.choices) ? q.choices : JSON.parse(q.choices as string),
           }));
 
           setQuestions(parsed);
