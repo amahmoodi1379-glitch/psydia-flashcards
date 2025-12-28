@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { User, Moon, Sun, BookOpen, TrendingUp, Target, LogIn, LogOut, Lock } from "lucide-react";
+import { User, Moon, Sun, BookOpen, TrendingUp, Target, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { HierarchicalMasteryMap } from "@/components/profile/HierarchicalMasteryMap";
 import { ActivitySparkline } from "@/components/profile/ActivitySparkline";
@@ -19,7 +19,7 @@ const toPersianNumber = (num: number): string => {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { stats, isLoading } = useProfileStats();
   const { resolvedTheme, setTheme } = useTheme();
   const { hasFeature } = useSubscription();
@@ -28,13 +28,6 @@ export default function ProfilePage() {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
-  const handleAuthAction = () => {
-    if (user) {
-      signOut();
-    } else {
-      navigate("/auth");
-    }
-  };
 
   const canViewMasteryMap = hasFeature("mastery_map");
   const canViewExtendedActivity = hasFeature("extended_activity");
@@ -59,19 +52,6 @@ export default function ProfilePage() {
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Auth Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleAuthAction}
-              className="w-12 h-12 rounded-xl"
-            >
-              {user ? (
-                <LogOut className="w-5 h-5 text-destructive" />
-              ) : (
-                <LogIn className="w-5 h-5 text-primary" />
-              )}
-            </Button>
             
             {/* Theme Toggle */}
             <button
