@@ -20,8 +20,8 @@ const PLAN_DURATIONS = {
   quarterly: 90,
 };
 
-// Base URL for the mini app (change this to your actual domain)
-const MINI_APP_BASE_URL = "https://ndqqudhrcrbydxjqkddr.lovableproject.com";
+// Base URL for the mini app - must match Zarinpal registered domain
+const MINI_APP_BASE_URL = "https://psynex.ir";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
