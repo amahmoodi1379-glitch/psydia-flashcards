@@ -95,20 +95,57 @@ export default function SubscriptionPage() {
   const currentPlan = subscription?.plan || "free";
   const remainingToday = subscription ? subscription.daily_limit - subscription.today_usage : 10;
 
-  // Handle payment result from callback
+  // Handle payment verification from Zarinpal callback
   useEffect(() => {
-    const paymentStatus = searchParams.get("payment");
-    const refId = searchParams.get("ref");
-    
-    if (paymentStatus === "success") {
-      toast.success(`پرداخت موفق! کد پیگیری: ${refId}`, { duration: 5000 });
-      refetch();
-      // Clear query params
-      setSearchParams({});
-    } else if (paymentStatus === "failed") {
-      toast.error("پرداخت ناموفق بود. لطفاً دوباره تلاش کنید.");
-      setSearchParams({});
-    }
+    const verifyPayment = async () => {
+      const shouldVerify = searchParams.get("verify");
+      const authority = searchParams.get("Authority");
+      const status = searchParams.get("Status");
+      
+      // Handle already processed payments
+      const paymentStatus = searchParams.get("payment");
+      if (paymentStatus === "success") {
+        const refId = searchParams.get("ref");
+        toast.success(`پرداخت موفق! کد پیگیری: ${refId}`, { duration: 5000 });
+        refetch();
+        setSearchParams({});
+        return;
+      } else if (paymentStatus === "failed") {
+        toast.error("پرداخت ناموفق بود. لطفاً دوباره تلاش کنید.");
+        setSearchParams({});
+        return;
+      }
+
+      // Verify payment with edge function
+      if (shouldVerify && authority) {
+        if (status !== "OK") {
+          toast.error("پرداخت لغو شد یا ناموفق بود.");
+          setSearchParams({});
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase.functions.invoke(
+            `zarinpal-payment?action=verify&Authority=${authority}&Status=${status}&callback=miniapp`
+          );
+
+          if (error) throw error;
+
+          if (data?.success) {
+            toast.success(`پرداخت موفق! کد پیگیری: ${data.ref_id}`, { duration: 5000 });
+            refetch();
+          } else {
+            toast.error("تأیید پرداخت ناموفق بود.");
+          }
+        } catch (error) {
+          console.error("Verification error:", error);
+          toast.error("خطا در تأیید پرداخت.");
+        }
+        setSearchParams({});
+      }
+    };
+
+    verifyPayment();
   }, [searchParams, setSearchParams, refetch]);
 
   const handlePurchase = async (planId: string, duration: "monthly" | "quarterly") => {
