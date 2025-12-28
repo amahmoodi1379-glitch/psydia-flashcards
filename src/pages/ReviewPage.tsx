@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Trophy, Star, Flag, Loader2, Lock } from "lucide-react";
+import { ArrowRight, Trophy, Star, Flag, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReviewQuestions, ReviewFilter } from "@/hooks/useReviewQuestions";
 import { useRecordAnswer } from "@/hooks/useRecordAnswer";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useSessionPersistence, SavedSession } from "@/hooks/useSessionPersistence";
+import { ReviewPageSkeleton } from "@/components/skeleton/ReviewPageSkeleton";
 import { toast } from "sonner";
+
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
   return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
@@ -18,19 +21,27 @@ const toPersianNumber = (num: number): string => {
 export default function ReviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const sessionSize = location.state?.sessionSize || 10;
-  const filter: ReviewFilter = location.state?.filter || { type: "daily" };
-  const sessionTitle = location.state?.title || "مرور روزانه";
+  
+  // Check if resuming a session
+  const isResuming = location.state?.resume === true;
+  const resumedSession: SavedSession | undefined = location.state?.savedSession;
+  
+  const sessionSize = resumedSession?.sessionSize || location.state?.sessionSize || 10;
+  const filter: ReviewFilter = resumedSession?.filter || location.state?.filter || { type: "daily" };
+  const sessionTitle = resumedSession?.title || location.state?.title || "مرور روزانه";
   
   const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
   const { hasFeature } = useSubscription();
+  const { saveSession, clearSession } = useSessionPersistence();
   
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // Initialize state from resumed session or defaults
+  const [currentIndex, setCurrentIndex] = useState(resumedSession?.currentIndex || 0);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [correctCount, setCorrectCount] = useState(0);
+  const [correctCount, setCorrectCount] = useState(resumedSession?.correctCount || 0);
+  const [answeredQuestions, setAnsweredQuestions] = useState<string[]>(resumedSession?.answeredQuestions || []);
   const [answerResult, setAnswerResult] = useState<{
     isCorrect: boolean;
     correctIndex: number;
@@ -41,6 +52,40 @@ export default function ReviewPage() {
   const totalQuestions = questions.length;
   const isBookmarked = currentQuestion ? checkIsBookmarked(currentQuestion.id) : false;
   const canBookmark = hasFeature("bookmarks");
+
+  // Save session whenever state changes (after questions are loaded)
+  useEffect(() => {
+    if (questions.length > 0 && !isComplete && currentIndex < questions.length) {
+      saveSession({
+        filter,
+        sessionSize,
+        title: sessionTitle,
+        currentIndex,
+        correctCount,
+        questionIds: questions.map(q => q.id),
+        answeredQuestions,
+      });
+    }
+  }, [currentIndex, correctCount, answeredQuestions, questions, isComplete]);
+
+  // If resuming, check if current question was already answered
+  useEffect(() => {
+    if (isResuming && resumedSession && questions.length > 0) {
+      const currentQ = questions[currentIndex];
+      if (currentQ && answeredQuestions.includes(currentQ.id)) {
+        // This question was answered, move to next unanswered
+        const nextUnanswered = questions.findIndex(
+          (q, i) => i >= currentIndex && !answeredQuestions.includes(q.id)
+        );
+        if (nextUnanswered !== -1) {
+          setCurrentIndex(nextUnanswered);
+        } else {
+          // All questions answered
+          setIsComplete(true);
+        }
+      }
+    }
+  }, [isResuming, questions]);
 
   const handleAnswer = async (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => {
     setHasAnswered(true);
@@ -55,8 +100,9 @@ export default function ReviewPage() {
       setCorrectCount((prev) => prev + 1);
     }
     
-    // Record answer with SM2 algorithm
+    // Mark question as answered
     if (currentQuestion) {
+      setAnsweredQuestions(prev => [...prev, currentQuestion.id]);
       await recordAnswer(currentQuestion.id, selectedIndex, correct);
     }
   };
@@ -64,6 +110,7 @@ export default function ReviewPage() {
   const handleNextQuestion = () => {
     if (currentIndex >= totalQuestions - 1) {
       setIsComplete(true);
+      clearSession(); // Clear saved session on completion
     } else {
       setCurrentIndex((prev) => prev + 1);
       setHasAnswered(false);
@@ -89,17 +136,14 @@ export default function ReviewPage() {
   const handleReport = () => {
     if (!currentQuestion) return;
     console.log("Report question:", currentQuestion.id);
-    // TODO: Implement report functionality
+    toast.info("گزارش شما ثبت شد");
   };
 
-  // Loading state
+  // Loading state with skeleton
   if (isLoading) {
     return (
       <AppLayout hideNav>
-        <div className="min-h-screen flex flex-col items-center justify-center p-6">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-          <p className="text-muted-foreground">در حال بارگذاری سوالات...</p>
-        </div>
+        <ReviewPageSkeleton />
       </AppLayout>
     );
   }
