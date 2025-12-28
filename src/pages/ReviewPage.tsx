@@ -22,16 +22,52 @@ export default function ReviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Debug: diagnose filter/state issues
-  console.log("[ReviewPage] location.state:", location.state);
+  // Read params from URL as a reliable fallback (Telegram WebView may drop navigation state)
+  const params = new URLSearchParams(location.search);
+  const qpType = params.get("type") as ReviewFilter["type"] | null;
+  const qpId = params.get("id") ?? undefined;
+  const qpSize = params.get("size");
+  const qpTitle = params.get("title");
+
+  // Read last navigation intent from sessionStorage as a second fallback
+  let storedNav:
+    | { sessionSize: number; filter: ReviewFilter; title: string; ts?: number }
+    | undefined;
+  try {
+    const raw = sessionStorage.getItem("review_nav");
+    if (raw) storedNav = JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+
+  const storedFilter = storedNav?.filter;
+  const storedSessionSize = storedNav?.sessionSize;
+  const storedTitle = storedNav?.title;
 
   // Check if resuming a session
   const isResuming = location.state?.resume === true;
   const resumedSession: SavedSession | undefined = location.state?.savedSession;
 
-  const sessionSize = resumedSession?.sessionSize || location.state?.sessionSize || 10;
-  const filter: ReviewFilter = resumedSession?.filter || location.state?.filter || { type: "daily" };
-  const sessionTitle = resumedSession?.title || location.state?.title || "مرور روزانه";
+  const sessionSize =
+    resumedSession?.sessionSize ||
+    location.state?.sessionSize ||
+    (qpSize ? Number(qpSize) : undefined) ||
+    storedSessionSize ||
+    10;
+
+  const filter: ReviewFilter =
+    resumedSession?.filter ||
+    location.state?.filter ||
+    (qpType ? { type: qpType, id: qpId } : undefined) ||
+    storedFilter ||
+    { type: "daily" };
+
+  const sessionTitle =
+    resumedSession?.title ||
+    location.state?.title ||
+    qpTitle ||
+    storedTitle ||
+    "مرور روزانه";
 
   const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();

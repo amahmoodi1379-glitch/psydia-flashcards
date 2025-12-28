@@ -25,34 +25,67 @@ export const SubjectSelector = React.forwardRef<HTMLDivElement, SubjectSelectorP
     const navigate = useNavigate();
     const { subjects, isLoading, error } = useSubjectHierarchy();
 
+    const persistReviewNav = (payload: {
+      sessionSize: number;
+      filter: { type: "daily" | "subject" | "topic" | "subtopic" | "bookmarks" | "frequently_wrong"; id?: string };
+      title: string;
+    }) => {
+      try {
+        sessionStorage.setItem(
+          "review_nav",
+          JSON.stringify({ ...payload, ts: Date.now() })
+        );
+      } catch {
+        // ignore
+      }
+    };
+
     const handleSelectSubject = (subject: Subject) => {
-      navigate("/review", {
-        state: {
-          sessionSize,
-          filter: { type: "subject", id: subject.id },
-          title: subject.title,
-        },
+      persistReviewNav({
+        sessionSize,
+        filter: { type: "subject", id: subject.id },
+        title: subject.title,
       });
+
+      const qs = new URLSearchParams({
+        size: String(sessionSize),
+        type: "subject",
+        id: subject.id,
+        title: subject.title,
+      });
+      navigate(`/review?${qs.toString()}`);
     };
 
     const handleSelectTopic = (topic: Topic) => {
-      navigate("/review", {
-        state: {
-          sessionSize,
-          filter: { type: "topic", id: topic.id },
-          title: topic.title,
-        },
+      persistReviewNav({
+        sessionSize,
+        filter: { type: "topic", id: topic.id },
+        title: topic.title,
       });
+
+      const qs = new URLSearchParams({
+        size: String(sessionSize),
+        type: "topic",
+        id: topic.id,
+        title: topic.title,
+      });
+      navigate(`/review?${qs.toString()}`);
     };
 
     const handleSelectSubtopic = (subtopic: Subtopic) => {
-      navigate("/review", {
-        state: {
-          sessionSize,
-          filter: { type: "subtopic", id: subtopic.id },
-          title: subtopic.title,
-        },
+      persistReviewNav({
+        sessionSize,
+        filter: { type: "subtopic", id: subtopic.id },
+        title: subtopic.title,
       });
+
+      const qs = new URLSearchParams({
+        size: String(sessionSize),
+        type: "subtopic",
+        id: subtopic.id,
+        title: subtopic.title,
+      });
+      navigate(`/review?${qs.toString()}`);
     };
 
     if (isLoading) {
