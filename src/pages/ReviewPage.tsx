@@ -21,15 +21,18 @@ const toPersianNumber = (num: number): string => {
 export default function ReviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
+  // Debug: diagnose filter/state issues
+  console.log("[ReviewPage] location.state:", location.state);
+
   // Check if resuming a session
   const isResuming = location.state?.resume === true;
   const resumedSession: SavedSession | undefined = location.state?.savedSession;
-  
+
   const sessionSize = resumedSession?.sessionSize || location.state?.sessionSize || 10;
   const filter: ReviewFilter = resumedSession?.filter || location.state?.filter || { type: "daily" };
   const sessionTitle = resumedSession?.title || location.state?.title || "مرور روزانه";
-  
+
   const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
