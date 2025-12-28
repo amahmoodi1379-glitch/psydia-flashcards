@@ -10,18 +10,67 @@ const ZARINPAL_MERCHANT_ID = Deno.env.get("ZARINPAL_MERCHANT_ID")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const PLAN_PRICES = {
+// Valid plans and durations - for input validation
+const VALID_PLANS = ["basic", "advanced"] as const;
+const VALID_DURATIONS = ["monthly", "quarterly"] as const;
+
+type ValidPlan = typeof VALID_PLANS[number];
+type ValidDuration = typeof VALID_DURATIONS[number];
+
+const PLAN_PRICES: Record<ValidPlan, Record<ValidDuration, number>> = {
   basic: { monthly: 50000, quarterly: 120000 },
   advanced: { monthly: 100000, quarterly: 250000 },
 };
 
-const PLAN_DURATIONS = {
+const PLAN_DURATIONS: Record<ValidDuration, number> = {
   monthly: 30,
   quarterly: 90,
 };
 
 // Base URL for the mini app - must match Zarinpal registered domain
 const MINI_APP_BASE_URL = "https://psynex.ir";
+
+// Rate limiting: max requests per user per hour
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX_REQUESTS = 10;
+
+// Simple in-memory rate limiter (resets on function cold start)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+  
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+  
+  entry.count++;
+  return true;
+}
+
+// Input validation functions
+function isValidPlan(plan: string): plan is ValidPlan {
+  return VALID_PLANS.includes(plan as ValidPlan);
+}
+
+function isValidDuration(duration: string): duration is ValidDuration {
+  return VALID_DURATIONS.includes(duration as ValidDuration);
+}
+
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+function isValidTelegramId(str: string): boolean {
+  return /^\d{1,15}$/.test(str);
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -35,11 +84,41 @@ serve(async (req) => {
 
     // Create payment request (supports both telegram_id and user_id)
     if (req.method === "POST" && action === "create") {
-      const { telegram_id, user_id, plan, duration, callback_type } = await req.json();
+      const body = await req.json();
+      const { telegram_id, user_id, plan, duration, callback_type } = body;
 
-      if ((!telegram_id && !user_id) || !plan || !duration) {
+      // Input validation
+      if (!telegram_id && !user_id) {
         return new Response(
-          JSON.stringify({ error: "Missing required fields" }),
+          JSON.stringify({ error: "Missing user identifier (telegram_id or user_id)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!plan || !isValidPlan(plan)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid plan. Must be 'basic' or 'advanced'" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!duration || !isValidDuration(duration)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid duration. Must be 'monthly' or 'quarterly'" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (user_id && !isValidUUID(user_id)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid user_id format" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (telegram_id && !isValidTelegramId(telegram_id)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid telegram_id format" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -65,19 +144,24 @@ serve(async (req) => {
         profileId = profile.id;
       }
 
-      const amount = PLAN_PRICES[plan as keyof typeof PLAN_PRICES]?.[duration as keyof typeof PLAN_DURATIONS];
-      if (!amount) {
+      // Rate limiting check
+      if (!checkRateLimit(profileId)) {
+        console.warn(`Rate limit exceeded for user: ${profileId}`);
         return new Response(
-          JSON.stringify({ error: "Invalid plan or duration" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Too many payment requests. Please try again later." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      const amount = PLAN_PRICES[plan][duration];
 
       // Determine callback URL based on callback_type
       // For miniapp, callback goes directly to the app (must match Zarinpal registered domain)
       const callbackUrl = callback_type === "miniapp" 
         ? `${MINI_APP_BASE_URL}/subscription?verify=true`
         : `${SUPABASE_URL}/functions/v1/zarinpal-payment?action=verify`;
+
+      console.log(`Creating payment for user ${profileId}: plan=${plan}, duration=${duration}, amount=${amount}`);
 
       // Create Zarinpal payment request
       const zarinpalResponse = await fetch("https://api.zarinpal.com/pg/v4/payment/request.json", {
@@ -112,7 +196,7 @@ serve(async (req) => {
       const authority = zarinpalData.data.authority;
 
       // Log payment request
-      await supabase.from("payment_logs").insert({
+      const { error: insertError } = await supabase.from("payment_logs").insert({
         user_id: profileId,
         authority,
         amount,
@@ -120,6 +204,10 @@ serve(async (req) => {
         duration,
         status: "pending",
       });
+
+      if (insertError) {
+        console.error("Error inserting payment log:", insertError);
+      }
 
       return new Response(
         JSON.stringify({
@@ -140,6 +228,7 @@ serve(async (req) => {
 
       // For mini app, return JSON response instead of redirect
       const respondError = (message: string) => {
+        console.warn(`Payment verification failed: ${message}`);
         if (isMiniApp) {
           return new Response(
             JSON.stringify({ success: false, error: message }),
@@ -153,6 +242,7 @@ serve(async (req) => {
       };
 
       const respondSuccess = (refId: string | number) => {
+        console.log(`Payment verified successfully: ref_id=${refId}`);
         if (isMiniApp) {
           return new Response(
             JSON.stringify({ success: true, ref_id: refId }),
@@ -182,6 +272,12 @@ serve(async (req) => {
         return respondError("Payment log not found");
       }
 
+      // Check if already verified (prevent double verification)
+      if (paymentLog.status === "success") {
+        console.log("Payment already verified:", authority);
+        return respondSuccess(paymentLog.ref_id || "already_verified");
+      }
+
       // Verify with Zarinpal
       const verifyResponse = await fetch("https://api.zarinpal.com/pg/v4/payment/verify.json", {
         method: "POST",
@@ -208,7 +304,7 @@ serve(async (req) => {
 
       // Payment successful
       const refId = verifyData.data.ref_id;
-      const durationDays = PLAN_DURATIONS[paymentLog.duration as keyof typeof PLAN_DURATIONS];
+      const durationDays = PLAN_DURATIONS[paymentLog.duration as ValidDuration];
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + durationDays);
 
@@ -244,6 +340,13 @@ serve(async (req) => {
       if (!telegram_id) {
         return new Response(
           JSON.stringify({ error: "Missing telegram_id" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!isValidTelegramId(telegram_id)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid telegram_id format" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
