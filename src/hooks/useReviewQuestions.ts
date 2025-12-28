@@ -122,7 +122,9 @@ export function useReviewQuestions(
         }
 
         // Debug: help diagnose filter issues in production
-        console.log("[useReviewQuestions] filter:", filter);
+        console.log("[useReviewQuestions] filter:", JSON.stringify(filter));
+        console.log("[useReviewQuestions] filter.type:", filter.type);
+        console.log("[useReviewQuestions] filter.id:", filter.id);
 
         // Validate filters
         if ((filter.type === "subject" || filter.type === "topic" || filter.type === "subtopic") && !filter.id) {

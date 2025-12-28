@@ -69,6 +69,12 @@ export default function ReviewPage() {
     storedTitle ||
     "مرور روزانه";
 
+  // Debug: log what filter was resolved to
+  console.log("[ReviewPage] FINAL filter:", JSON.stringify(filter));
+  console.log("[ReviewPage] qpType:", qpType, "qpId:", qpId);
+  console.log("[ReviewPage] location.state:", JSON.stringify(location.state));
+  console.log("[ReviewPage] storedNav:", JSON.stringify(storedNav));
+
   const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
