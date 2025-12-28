@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.zarinpal-payment]
 verify_jwt = false
+
+[functions.cleanup-old-data]
+verify_jwt = false
