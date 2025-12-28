@@ -1,4 +1,4 @@
-import { BookOpen, User, Crown } from "lucide-react";
+import { BookOpen, User, Crown, Trophy } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +7,11 @@ const navItems = [
     label: "آزمون",
     path: "/",
     icon: BookOpen,
+  },
+  {
+    label: "لیدربورد",
+    path: "/leaderboard",
+    icon: Trophy,
   },
   {
     label: "اشتراک",

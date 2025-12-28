@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import ProfilePage from "./pages/ProfilePage";
 import ReviewPage from "./pages/ReviewPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
+import LeaderboardPage from "./pages/LeaderboardPage";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ContentManager from "./pages/admin/ContentManager";
@@ -43,6 +44,7 @@ const App = () => (
                 <Route path="/profile" element={<TelegramGuard><ProfilePage /></TelegramGuard>} />
                 <Route path="/review" element={<TelegramGuard><ReviewPage /></TelegramGuard>} />
                 <Route path="/subscription" element={<TelegramGuard><SubscriptionPage /></TelegramGuard>} />
+                <Route path="/leaderboard" element={<TelegramGuard><LeaderboardPage /></TelegramGuard>} />
                 
                 {/* Admin routes - no Telegram guard, uses email auth */}
                 <Route path="/admin" element={<AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>} />
