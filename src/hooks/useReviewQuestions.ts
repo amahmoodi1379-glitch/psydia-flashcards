@@ -121,9 +121,22 @@ export function useReviewQuestions(
           return;
         }
 
+        // Debug: help diagnose filter issues in production
+        console.log("[useReviewQuestions] filter:", filter);
+
+        // Validate filters
+        if ((filter.type === "subject" || filter.type === "topic" || filter.type === "subtopic") && !filter.id) {
+          setQuestions([]);
+          setDueCount(0);
+          setNewCount(0);
+          setError("فیلتر انتخاب‌شده نامعتبر است");
+          setIsLoading(false);
+          return;
+        }
+
         // Get subtopic_ids based on filter
         let subtopicIds: string[] = [];
-        
+
         if (filter.type === "subtopic" && filter.id) {
           subtopicIds = [filter.id];
         } else if (filter.type === "topic" && filter.id) {
@@ -138,7 +151,7 @@ export function useReviewQuestions(
             .select("id")
             .eq("subject_id", filter.id);
           const topicIds = topics?.map((t) => t.id) || [];
-          
+
           if (topicIds.length > 0) {
             const { data: subtopics } = await supabase
               .from("subtopics")
