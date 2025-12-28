@@ -148,10 +148,20 @@ export function useReviewQuestions(
           }
         }
 
+        // For subject/topic/subtopic filters, if no subtopics found, return empty
+        if (filter.type !== "daily" && subtopicIds.length === 0) {
+          setQuestions([]);
+          setDueCount(0);
+          setNewCount(0);
+          setIsLoading(false);
+          return;
+        }
+
         // Use questions_safe view - no correct_index exposed!
         let questionsQuery = supabase
           .from("questions_safe")
-          .select("id, stem_text, choices, subtopic_id");
+          .select("id, stem_text, choices, subtopic_id")
+          .eq("is_active", true);
 
         // Apply subtopic filter if not daily review
         if (filter.type !== "daily" && subtopicIds.length > 0) {
@@ -287,17 +297,27 @@ export function useDueCount(filter?: ReviewFilter): {
           }
         }
 
+        // For subject/topic/subtopic filters, if no subtopics found, return empty
+        if (filter && filter.type !== "daily" && subtopicIds.length === 0) {
+          setDueCount(0);
+          setNewCount(0);
+          setTotal(0);
+          setIsLoading(false);
+          return;
+        }
+
         // Use questions_safe view
         let query = supabase
           .from("questions_safe")
-          .select("id");
+          .select("id")
+          .eq("is_active", true);
 
         if (subtopicIds.length > 0) {
           query = query.in("subtopic_id", subtopicIds);
         }
 
         const { data: allQuestions } = await query;
-        const questionIds = allQuestions?.map((q) => q.id) || [];
+        const questionIds = allQuestions?.map((q) => q.id).filter((id): id is string => id !== null) || [];
         setTotal(questionIds.length);
 
         if (!user || questionIds.length === 0) {
