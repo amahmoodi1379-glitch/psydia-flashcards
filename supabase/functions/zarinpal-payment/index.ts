@@ -74,8 +74,9 @@ serve(async (req) => {
       }
 
       // Determine callback URL based on callback_type
+      // For miniapp, callback goes directly to the app (must match Zarinpal registered domain)
       const callbackUrl = callback_type === "miniapp" 
-        ? `${SUPABASE_URL}/functions/v1/zarinpal-payment?action=verify&callback=miniapp`
+        ? `${MINI_APP_BASE_URL}/subscription?verify=true`
         : `${SUPABASE_URL}/functions/v1/zarinpal-payment?action=verify`;
 
       // Create Zarinpal payment request
@@ -130,29 +131,43 @@ serve(async (req) => {
       );
     }
 
-    // Verify payment (callback from Zarinpal)
-    if (req.method === "GET" && action === "verify") {
+    // Verify payment (callback from Zarinpal or from mini app)
+    if (action === "verify") {
       const authority = url.searchParams.get("Authority");
       const status = url.searchParams.get("Status");
       const callbackType = url.searchParams.get("callback");
+      const isMiniApp = callbackType === "miniapp";
 
-      const getRedirectUrl = (success: boolean, refId?: string | number) => {
-        if (callbackType === "miniapp") {
-          return success 
-            ? `${MINI_APP_BASE_URL}/subscription?payment=success&ref=${refId}`
-            : `${MINI_APP_BASE_URL}/subscription?payment=failed`;
+      // For mini app, return JSON response instead of redirect
+      const respondError = (message: string) => {
+        if (isMiniApp) {
+          return new Response(
+            JSON.stringify({ success: false, error: message }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
-        return success
-          ? `https://t.me/psydiabot?start=payment_success_${refId}`
-          : `https://t.me/psydiabot?start=payment_failed`;
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "https://t.me/psydiabot?start=payment_failed" },
+        });
+      };
+
+      const respondSuccess = (refId: string | number) => {
+        if (isMiniApp) {
+          return new Response(
+            JSON.stringify({ success: true, ref_id: refId }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(null, {
+          status: 302,
+          headers: { Location: `https://t.me/psydiabot?start=payment_success_${refId}` },
+        });
       };
 
       if (status !== "OK" || !authority) {
         console.log("Payment cancelled or failed", { status, authority });
-        return new Response(null, {
-          status: 302,
-          headers: { Location: getRedirectUrl(false) },
-        });
+        return respondError("Payment cancelled or failed");
       }
 
       // Get payment log
@@ -164,10 +179,7 @@ serve(async (req) => {
 
       if (logError || !paymentLog) {
         console.error("Payment log not found:", authority);
-        return new Response(null, {
-          status: 302,
-          headers: { Location: getRedirectUrl(false) },
-        });
+        return respondError("Payment log not found");
       }
 
       // Verify with Zarinpal
@@ -191,10 +203,7 @@ serve(async (req) => {
           .update({ status: "failed", updated_at: new Date().toISOString() })
           .eq("authority", authority);
 
-        return new Response(null, {
-          status: 302,
-          headers: { Location: getRedirectUrl(false) },
-        });
+        return respondError("Payment verification failed");
       }
 
       // Payment successful
@@ -225,11 +234,7 @@ serve(async (req) => {
 
       console.log("Payment successful, subscription updated", { refId, userId: paymentLog.user_id });
 
-      // Redirect to success page
-      return new Response(null, {
-        status: 302,
-        headers: { Location: getRedirectUrl(true, refId) },
-      });
+      return respondSuccess(refId);
     }
 
     // Get user subscription status (for bot)
