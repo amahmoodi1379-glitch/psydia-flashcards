@@ -54,14 +54,6 @@ BEGIN
     AND (s.expires_at IS NULL OR s.expires_at > now())
   WHERE p.id = v_user_id;
 
-  IF v_plan = 'free' THEN
-    SELECT COALESCE(question_count, 0)
-    INTO v_current_usage
-    FROM public.daily_usage
-    WHERE user_id = v_user_id AND usage_date = CURRENT_DATE
-    FOR UPDATE;
-  END IF;
-
   IF p_client_request_id IS NOT NULL THEN
     INSERT INTO public.attempt_logs(user_id, question_id, selected_index, is_correct, client_request_id)
     VALUES (v_user_id, p_question_id, p_selected_index, p_is_correct, p_client_request_id)
@@ -69,6 +61,13 @@ BEGIN
     RETURNING id INTO v_attempt_id;
 
     IF v_attempt_id IS NULL THEN
+      IF v_plan = 'free' THEN
+        SELECT COALESCE(question_count, 0)
+        INTO v_current_usage
+        FROM public.daily_usage
+        WHERE user_id = v_user_id AND usage_date = CURRENT_DATE;
+      END IF;
+
       SELECT *
       INTO v_existing
       FROM public.user_question_state
@@ -86,35 +85,39 @@ BEGIN
     END IF;
   END IF;
 
-  IF v_plan = 'free' AND v_current_usage >= v_daily_limit THEN
-    IF v_attempt_id IS NOT NULL THEN
-      DELETE FROM public.attempt_logs
-      WHERE id = v_attempt_id;
-    END IF;
-
-    SELECT *
-    INTO v_existing
-    FROM public.user_question_state
-    WHERE user_id = v_user_id AND question_id = p_question_id;
-
-    RETURN QUERY
-    SELECT false,
-           false,
-           0,
-           COALESCE(v_existing.box_number, 1),
-           COALESCE(v_existing.ease_factor, 2.5),
-           COALESCE(v_existing.interval_days, 1),
-           COALESCE(v_existing.next_review_at, now());
-    RETURN;
-  END IF;
-
   IF v_plan = 'free' THEN
-    INSERT INTO public.daily_usage (user_id, usage_date, question_count)
-    VALUES (v_user_id, CURRENT_DATE, 1)
-    ON CONFLICT (user_id, usage_date)
-    DO UPDATE SET question_count = public.daily_usage.question_count + 1;
+    WITH quota_upsert AS (
+      INSERT INTO public.daily_usage (user_id, usage_date, question_count)
+      VALUES (v_user_id, CURRENT_DATE, 1)
+      ON CONFLICT (user_id, usage_date)
+      DO UPDATE SET question_count = public.daily_usage.question_count + 1
+      WHERE public.daily_usage.question_count < v_daily_limit
+      RETURNING question_count
+    )
+    SELECT question_count INTO v_current_usage
+    FROM quota_upsert;
 
-    v_current_usage := v_current_usage + 1;
+    IF v_current_usage IS NULL THEN
+      IF v_attempt_id IS NOT NULL THEN
+        DELETE FROM public.attempt_logs
+        WHERE id = v_attempt_id;
+      END IF;
+
+      SELECT *
+      INTO v_existing
+      FROM public.user_question_state
+      WHERE user_id = v_user_id AND question_id = p_question_id;
+
+      RETURN QUERY
+      SELECT false,
+             false,
+             0,
+             COALESCE(v_existing.box_number, 1),
+             COALESCE(v_existing.ease_factor, 2.5),
+             COALESCE(v_existing.interval_days, 1),
+             COALESCE(v_existing.next_review_at, now());
+      RETURN;
+    END IF;
   END IF;
 
   IF p_client_request_id IS NULL THEN
