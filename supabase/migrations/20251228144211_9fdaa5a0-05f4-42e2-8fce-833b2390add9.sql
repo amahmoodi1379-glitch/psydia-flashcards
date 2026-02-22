@@ -1,17 +1,44 @@
--- Enable required extensions
+-- Enable required extension for scheduler
 CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
+-- SQL-based cleanup procedure to avoid project-specific URLs and hardcoded tokens
+CREATE OR REPLACE FUNCTION public.run_weekly_cleanup()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  deleted_daily_usage_count integer := 0;
+  deactivated_subscriptions_count integer := 0;
+BEGIN
+  -- 1. Delete old daily_usage records (older than 7 days)
+  DELETE FROM public.daily_usage
+  WHERE usage_date < CURRENT_DATE - INTERVAL '7 days';
+
+  GET DIAGNOSTICS deleted_daily_usage_count = ROW_COUNT;
+
+  -- 2. Deactivate expired subscriptions
+  UPDATE public.subscriptions
+  SET is_active = false
+  WHERE expires_at < now()
+    AND is_active = true;
+
+  GET DIAGNOSTICS deactivated_subscriptions_count = ROW_COUNT;
+
+  RETURN jsonb_build_object(
+    'daily_usage_deleted', deleted_daily_usage_count,
+    'subscriptions_deactivated', deactivated_subscriptions_count,
+    'executed_at', now()
+  );
+END;
+$$;
 
 -- Schedule weekly cleanup every Sunday at 3:00 AM UTC
 SELECT cron.schedule(
   'weekly-cleanup-old-data',
   '0 3 * * 0',
   $$
-  SELECT
-    net.http_post(
-        url:='https://ndqqudhrcrbydxjqkddr.supabase.co/functions/v1/cleanup-old-data',
-        headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kcXF1ZGhyY3JieWR4anFrZGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2ODI2NDQsImV4cCI6MjA4MjI1ODY0NH0.IH3gCs-WgapVzPtresF-GI5xbDn7JTNSnV-2NYiyELc"}'::jsonb,
-        body:='{}'::jsonb
-    ) as request_id;
+  SELECT public.run_weekly_cleanup();
   $$
 );
