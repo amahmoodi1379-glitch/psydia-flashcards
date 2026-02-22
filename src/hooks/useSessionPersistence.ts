@@ -41,7 +41,7 @@ export function useSessionPersistence() {
           // Session expired, remove it
           localStorage.removeItem(SESSION_KEY);
         }
-      } catch (e) {
+      } catch (_e) {
         localStorage.removeItem(SESSION_KEY);
       }
     }

@@ -55,12 +55,28 @@ npm run build
 - `src/integrations/supabase/`: Supabase client/types
 - `docs/ui-kit-inventory.md`: internal policy for the `template inventory` (archived shadcn/ui primitives in `src/components/ui-archive/`)
 
+## Team Note: Template vs Production-Critical
+
+### Template inventory (safe to keep as archive)
+
+- `src/components/ui-archive/**`: shadcn/ui templates that are not imported by live product flows.
+- `docs/ui-kit-inventory.md`: inventory policy and migration rule for moving templates back to active UI.
+
+### Production-critical (must stay stable and covered by checks)
+
+- `src/components/ui/**`: active UI primitives used by app pages/components.
+- `src/pages/**`: route-level product experiences.
+- `src/hooks/**`: data and business-flow hooks.
+- `src/integrations/supabase/**` and `supabase/functions/**`: backend integration + edge logic.
+- `.github/workflows/unused-check.yml`: CI guardrail preventing unused import/export/file buildup.
+
 ## Unused Code Guardrails
 
 CI runs `.github/workflows/unused-check.yml` on push/PR and executes:
 
-1. `npm run check:unused`
-2. `npm run audit:imports`
+1. `npm run lint:unused`
+2. `npm run check:unused`
+3. `npm run audit:imports`
 
 This keeps unused imports/exports/files from growing silently.
 
