@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { TelegramGuard } from "@/components/TelegramGuard";
 import { AdminGuard } from "@/components/admin/AdminGuard";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import Index from "./pages/Index";
@@ -39,12 +38,12 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                {/* Main app routes - Telegram only */}
-                <Route path="/" element={<TelegramGuard><Index /></TelegramGuard>} />
-                <Route path="/profile" element={<TelegramGuard><ProfilePage /></TelegramGuard>} />
-                <Route path="/review" element={<TelegramGuard><ReviewPage /></TelegramGuard>} />
-                <Route path="/subscription" element={<TelegramGuard><SubscriptionPage /></TelegramGuard>} />
-                <Route path="/leaderboard" element={<TelegramGuard><LeaderboardPage /></TelegramGuard>} />
+                {/* Main app routes */}
+                <Route path="/" element={<Index />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/review" element={<ReviewPage />} />
+                <Route path="/subscription" element={<SubscriptionPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
                 
                 {/* Admin routes - no Telegram guard, uses email auth */}
                 <Route path="/admin" element={<AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>} />
