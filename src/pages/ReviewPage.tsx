@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
@@ -72,7 +72,7 @@ export default function ReviewPage() {
   const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
-  const { hasFeature } = useSubscription();
+  const { hasFeature, canUseQuestion, refetch: refetchSubscription } = useSubscription();
   const { saveSession, clearSession } = useSessionPersistence();
   
   // Initialize state from resumed session or defaults
@@ -88,6 +88,7 @@ export default function ReviewPage() {
     correctIndex: number;
     explanation?: string;
   } | undefined>();
+  const answerRequestIdsRef = useRef<Map<string, string>>(new Map());
 
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
@@ -146,8 +147,21 @@ export default function ReviewPage() {
         return;
       }
 
+      const existingRequestId = answerRequestIdsRef.current.get(currentQuestion.id);
+      const requestId = existingRequestId ?? crypto.randomUUID();
+      answerRequestIdsRef.current.set(currentQuestion.id, requestId);
+
       try {
-        await recordAnswer(currentQuestion.id, selectedIndex, correct);
+        const canProceed = await canUseQuestion(requestId);
+        if (!canProceed) {
+          toast.error("سهمیه روزانه شما تمام شده است. برای ادامه، اشتراک تهیه کنید.");
+          navigate("/subscription");
+          return;
+        }
+
+        await recordAnswer(currentQuestion.id, selectedIndex, correct, {
+          clientRequestId: requestId,
+        });
 
         setHasAnswered(true);
         setAnswerResult({
@@ -161,6 +175,7 @@ export default function ReviewPage() {
         }
 
         setAnsweredQuestions((prev) => new Set(prev).add(currentQuestion.id));
+        await refetchSubscription();
       } catch (recordError) {
         const message =
           recordError instanceof Error
