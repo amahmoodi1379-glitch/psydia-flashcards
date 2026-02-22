@@ -574,6 +574,13 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_admin_users_page: {
+        Args: { _page?: number; _page_size?: number; _search?: string }
+        Returns: {
+          rows: Json
+          total_count: number
+        }[]
+      }
       get_extended_activity: {
         Args: { _days: number }
         Returns: {
