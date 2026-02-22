@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "lint:unused": "node scripts/check-unused.mjs",
     "preview": "vite preview",
     "audit:imports": "node scripts/audit-imports.mjs",
     "check:unused": "node scripts/check-unused.mjs"

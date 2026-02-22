@@ -29,7 +29,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
       if (error) {
         toast.error(error);
       }
-    } catch (err) {
+    } catch (_err) {
       toast.error('خطا در ورود');
     } finally {
       setIsSubmitting(false);
