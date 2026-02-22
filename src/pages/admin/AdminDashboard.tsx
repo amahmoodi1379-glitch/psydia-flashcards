@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, FolderTree, FileText, HelpCircle, Users } from 'lucide-react';
+import { BookOpen, FolderTree, FileText, HardDrive, HelpCircle, Users } from 'lucide-react';
 
 interface Stats {
   subjects: number;
@@ -9,6 +9,15 @@ interface Stats {
   subtopics: number;
   questions: number;
   users: number;
+}
+
+interface TableStorageStat {
+  table_name: string;
+  row_estimate: number;
+  total_size_pretty: string;
+  total_size_bytes: number;
+  table_size_pretty: string;
+  index_size_pretty: string;
 }
 
 export default function AdminDashboard() {
@@ -19,17 +28,19 @@ export default function AdminDashboard() {
     questions: 0,
     users: 0,
   });
+  const [storageStats, setStorageStats] = useState<TableStorageStat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [subjects, topics, subtopics, questions, users] = await Promise.all([
+        const [subjects, topics, subtopics, questions, users, tableStorage] = await Promise.all([
           supabase.from('subjects').select('id', { count: 'exact', head: true }),
           supabase.from('topics').select('id', { count: 'exact', head: true }),
           supabase.from('subtopics').select('id', { count: 'exact', head: true }),
           supabase.from('questions').select('id', { count: 'exact', head: true }),
           supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.rpc('get_table_storage_report'),
         ]);
 
         setStats({
@@ -39,6 +50,12 @@ export default function AdminDashboard() {
           questions: questions.count || 0,
           users: users.count || 0,
         });
+
+        if (tableStorage.error) {
+          console.error('Error fetching table storage stats:', tableStorage.error);
+        } else {
+          setStorageStats((tableStorage.data as TableStorageStat[] | null) || []);
+        }
       } catch (error) {
         console.error('Error fetching stats:', error);
       } finally {
@@ -78,6 +95,39 @@ export default function AdminDashboard() {
           </Card>
         ))}
       </div>
+
+      <Card className="mt-8">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base font-semibold">پایش حجم جداول کلیدی</CardTitle>
+          <HardDrive className="h-5 w-5 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-muted-foreground">در حال بارگذاری...</div>
+          ) : storageStats.length === 0 ? (
+            <div className="text-muted-foreground">داده‌ای برای نمایش وجود ندارد.</div>
+          ) : (
+            <div className="space-y-3">
+              {storageStats.map((item) => (
+                <div key={item.table_name} className="flex items-center justify-between border-b pb-2 last:border-b-0">
+                  <div>
+                    <div className="font-medium">{item.table_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      ردیف تخمینی: {item.row_estimate.toLocaleString('fa-IR')}
+                    </div>
+                  </div>
+                  <div className="text-sm text-left" dir="ltr">
+                    <div>Total: {item.total_size_pretty}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Table: {item.table_size_pretty} · Index: {item.index_size_pretty}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

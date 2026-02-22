@@ -8,6 +8,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ATTEMPT_LOG_RETENTION_DAYS = Number(Deno.env.get("ATTEMPT_LOG_RETENTION_DAYS") || "180");
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -38,16 +39,14 @@ serve(async (req) => {
       console.log(`Deleted ${results.daily_usage_deleted} old daily_usage records`);
     }
 
-    // 2. Optional: Delete very old attempt_logs (older than 2 years) - commented out for now
-    // Uncomment when database grows significantly
-    /*
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    // 2. Delete old attempt_logs (free-tier friendly retention)
+    const attemptLogsCutoff = new Date();
+    attemptLogsCutoff.setDate(attemptLogsCutoff.getDate() - ATTEMPT_LOG_RETENTION_DAYS);
 
     const { data: deletedAttempts, error: attemptError } = await supabase
       .from("attempt_logs")
       .delete()
-      .lt("created_at", twoYearsAgo.toISOString())
+      .lt("created_at", attemptLogsCutoff.toISOString())
       .select("id");
 
     if (attemptError) {
@@ -56,9 +55,19 @@ serve(async (req) => {
       results.attempt_logs_deleted = deletedAttempts?.length || 0;
       console.log(`Deleted ${results.attempt_logs_deleted} old attempt logs`);
     }
-    */
 
     // 3. Deactivate expired subscriptions
+
+    // 4. Storage monitoring snapshot for heavy tables
+    const { data: storageReport, error: storageError } = await supabase.rpc("get_table_storage_report");
+
+    if (storageError) {
+      console.error("Error fetching storage report:", storageError);
+    } else {
+      results.storage_report_count = storageReport?.length || 0;
+      console.log("Storage report:", storageReport);
+    }
+
     const { data: expiredSubs, error: subError } = await supabase
       .from("subscriptions")
       .update({ is_active: false })
