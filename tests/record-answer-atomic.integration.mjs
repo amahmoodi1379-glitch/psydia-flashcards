@@ -6,24 +6,38 @@ const migrationSql = readFileSync(migrationPath, 'utf8');
 
 assert.match(
   migrationSql,
-  /CREATE UNIQUE INDEX IF NOT EXISTS attempt_logs_user_request_id_key/i,
-  'Attempt logs must have idempotency unique index for retries/double-clicks',
+  /v_user_id\s*:=\s*auth\.uid\(\);/i,
+  'RPC must resolve the authenticated user id at the beginning of the function',
 );
+
 assert.match(
   migrationSql,
-  /ON CONFLICT \(user_id, client_request_id\).*DO NOTHING/is,
-  'RPC must de-duplicate repeated request ids on attempt_logs',
+  /FROM public\.daily_usage[\s\S]*FOR UPDATE;/i,
+  'RPC must lock free-plan daily_usage rows before quota checks',
 );
+
 assert.match(
   migrationSql,
-  /ON CONFLICT \(user_id, question_id\)\s*DO UPDATE/is,
-  'RPC must upsert user_question_state atomically',
+  /IF v_plan = 'free' AND v_current_usage >= v_daily_limit THEN[\s\S]*RETURN QUERY[\s\S]*false,\s*\n\s*false,[\s\S]*RETURN;/i,
+  'RPC must return quota_allowed=false before any attempt log insert when quota is exhausted',
+);
+
+assert.match(
+  migrationSql,
+  /INSERT INTO public\.daily_usage[\s\S]*ON CONFLICT \(user_id, usage_date\)[\s\S]*INSERT INTO public\.attempt_logs[\s\S]*ON CONFLICT \(user_id, client_request_id\).*DO NOTHING[\s\S]*INSERT INTO public\.user_question_state[\s\S]*ON CONFLICT \(user_id, question_id\)\s*DO UPDATE/is,
+  'RPC must update usage, then idempotent attempt_logs, then upsert user_question_state in one flow',
+);
+
+assert.match(
+  migrationSql,
+  /IF p_client_request_id IS NOT NULL THEN[\s\S]*FROM public\.attempt_logs[\s\S]*IF FOUND THEN[\s\S]*RETURN QUERY[\s\S]*SELECT true,\s*\n\s*true,/is,
+  'RPC must preserve idempotent already_processed path by returning current state for previously successful request ids',
 );
 
 const recordAnswerSource = readFileSync('src/lib/recordAnswer.ts', 'utf8');
 assert.match(
   recordAnswerSource,
-  /const inFlightRequests = new Map<string, Promise<void>>\(\);/,
+  /const inFlightRequests = new Map<string, Promise<RecordAnswerResult>>\(\);/,
   'Client logic must keep in-flight requests map for same request de-duplication',
 );
 assert.match(
