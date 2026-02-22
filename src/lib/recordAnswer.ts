@@ -21,13 +21,22 @@ export interface RecordAnswerInput {
   clientRequestId?: string;
 }
 
-const getErrorMessage = (error: { code?: string }) => {
+const getErrorMessage = (error: { code?: string; message?: string; details?: string | null }) => {
   if (error.code === "57014") {
     return "درخواست شما به دلیل timeout کامل نشد. لطفاً دوباره تلاش کنید.";
   }
 
   if (error.code === "23505" || error.code === "409") {
     return "این پاسخ قبلاً ثبت شده است.";
+  }
+
+  const combinedErrorText = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  if (
+    combinedErrorText.includes("failed to fetch") ||
+    combinedErrorText.includes("network") ||
+    combinedErrorText.includes("timeout")
+  ) {
+    return "اتصال اینترنت ناپایدار است یا قطع شده. لطفاً اتصال را بررسی کنید و همان سوال را دوباره ثبت کنید.";
   }
 
   return "ثبت پاسخ با خطا مواجه شد. لطفاً دوباره تلاش کنید.";
