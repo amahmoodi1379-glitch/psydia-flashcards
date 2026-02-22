@@ -4,7 +4,6 @@ import { useHierarchicalMastery } from "@/hooks/useHierarchicalMastery";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, BookOpen, Layers, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 
 type ViewLevel = "subjects" | "topics" | "subtopics";
 
