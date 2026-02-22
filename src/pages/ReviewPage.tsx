@@ -128,29 +128,33 @@ export default function ReviewPage() {
   }, [isResuming, questions]);
 
   const handleAnswer = async (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => {
-    setHasAnswered(true);
-    
-    setAnswerResult({
-      isCorrect: correct,
-      correctIndex,
-      explanation,
-    });
-    
-    if (correct) {
-      setCorrectCount((prev) => prev + 1);
-    }
-    
-    // Mark question as answered
     if (currentQuestion) {
-      setAnsweredQuestions(prev => [...prev, currentQuestion.id]);
       try {
         await recordAnswer(currentQuestion.id, selectedIndex, correct);
+
+        setHasAnswered(true);
+        setAnswerResult({
+          isCorrect: correct,
+          correctIndex,
+          explanation,
+        });
+
+        if (correct) {
+          setCorrectCount((prev) => prev + 1);
+        }
+
+        setAnsweredQuestions((prev) =>
+          prev.includes(currentQuestion.id) ? prev : [...prev, currentQuestion.id]
+        );
       } catch (recordError) {
         const message =
           recordError instanceof Error
             ? recordError.message
-            : "ثبت پاسخ با خطا مواجه شد.";
-        toast.error(message);
+            : "ذخیره پاسخ انجام نشد. لطفاً دوباره تلاش کنید.";
+        toast.error(`${message} شما می‌توانید همین سوال را دوباره پاسخ دهید.`);
+
+        setHasAnswered(false);
+        setAnswerResult(undefined);
       }
     }
   };
