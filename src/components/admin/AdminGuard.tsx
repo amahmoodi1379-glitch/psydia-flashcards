@@ -1,7 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +13,7 @@ interface AdminGuardProps {
 }
 
 export function AdminGuard({ children }: AdminGuardProps) {
-  const { user, isLoading: authLoading, session } = useAuth();
+  const { user, isLoading: authLoading, session, signInWithPassword } = useAuth();
   const { isAdmin, isLoading: adminLoading } = useIsAdmin();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,13 +24,10 @@ export function AdminGuard({ children }: AdminGuardProps) {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await signInWithPassword(email, password);
 
       if (error) {
-        toast.error(error.message);
+        toast.error(error);
       }
     } catch (err) {
       toast.error('خطا در ورود');
