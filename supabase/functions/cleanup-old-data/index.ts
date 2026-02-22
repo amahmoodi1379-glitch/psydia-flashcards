@@ -3,7 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const CRON_SECRET = Deno.env.get("CRON_SECRET");
 const ATTEMPT_LOG_RETENTION_DAYS = Number(Deno.env.get("ATTEMPT_LOG_RETENTION_DAYS") || "180");
 
 const jsonHeaders = {
@@ -11,13 +10,14 @@ const jsonHeaders = {
 };
 
 const authorizeRequest = (req: Request): Response | null => {
-  const cronSecretHeader = req.headers.get("x-cron-secret");
+  const authHeader = req.headers.get("authorization") || "";
+  const [scheme, token] = authHeader.split(" ");
 
-  const hasValidCronSecret = Boolean(
-    CRON_SECRET && cronSecretHeader && cronSecretHeader === CRON_SECRET,
-  );
+  const hasValidServiceJwt = scheme?.toLowerCase() === "bearer"
+    && token
+    && token === SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!hasValidCronSecret) {
+  if (!hasValidServiceJwt) {
     return new Response(
       JSON.stringify({ error: "Unauthorized" }),
       { status: 401, headers: jsonHeaders },
