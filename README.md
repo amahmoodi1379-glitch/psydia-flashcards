@@ -71,3 +71,43 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Secure cron for `cleanup-old-data`
+
+This endpoint is intended for server-to-server cron only.
+
+### Required Edge Function settings
+
+- In `supabase/config.toml`, keep JWT verification enabled:
+  - `[functions.cleanup-old-data].verify_jwt = true`
+- Configure a shared secret in function env:
+  - `CRON_SECRET=<strong-random-secret>`
+
+### Allowed authentication methods
+
+`cleanup-old-data` accepts one of these:
+
+1. **Supabase service JWT** via `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`
+2. **Cron secret** via `x-cron-secret: <CRON_SECRET>`
+
+If no auth is provided, it returns `401`. If auth is present but invalid, it returns `403`.
+
+### Deployment checklist
+
+1. Set secrets:
+
+```bash
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... CRON_SECRET=... ATTEMPT_LOG_RETENTION_DAYS=180
+```
+
+2. Deploy function:
+
+```bash
+supabase functions deploy cleanup-old-data
+```
+
+3. Configure your scheduler to call `POST /functions/v1/cleanup-old-data` with either:
+   - `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`, or
+   - `x-cron-secret: <CRON_SECRET>`
+
+> CORS is intentionally not open for this function because it is not intended for browser clients.

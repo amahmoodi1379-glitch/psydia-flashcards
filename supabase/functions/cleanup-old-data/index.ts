@@ -1,18 +1,61 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const CRON_SECRET = Deno.env.get("CRON_SECRET");
 const ATTEMPT_LOG_RETENTION_DAYS = Number(Deno.env.get("ATTEMPT_LOG_RETENTION_DAYS") || "180");
 
+const jsonHeaders = {
+  "Content-Type": "application/json",
+};
+
+const getBearerToken = (req: Request): string | null => {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.toLowerCase().startsWith("bearer ")) {
+    return null;
+  }
+
+  return authHeader.slice(7).trim();
+};
+
+const authorizeRequest = (req: Request): Response | null => {
+  const bearerToken = getBearerToken(req);
+  const cronSecretHeader = req.headers.get("x-cron-secret");
+
+  const hasServiceJwt = bearerToken === SUPABASE_SERVICE_ROLE_KEY;
+  const hasValidCronSecret = Boolean(
+    CRON_SECRET && cronSecretHeader && cronSecretHeader === CRON_SECRET,
+  );
+
+  if (!bearerToken && !cronSecretHeader) {
+    return new Response(
+      JSON.stringify({ error: "Missing authentication" }),
+      { status: 401, headers: jsonHeaders },
+    );
+  }
+
+  if (!hasServiceJwt && !hasValidCronSecret) {
+    return new Response(
+      JSON.stringify({ error: "Forbidden" }),
+      { status: 403, headers: jsonHeaders },
+    );
+  }
+
+  return null;
+};
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "Method not allowed" }),
+      { status: 405, headers: jsonHeaders },
+    );
+  }
+
+  const authErrorResponse = authorizeRequest(req);
+  if (authErrorResponse) {
+    return authErrorResponse;
   }
 
   try {
@@ -24,7 +67,7 @@ serve(async (req) => {
     // 1. Delete old daily_usage records (older than 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
 
     const { data: deletedUsage, error: usageError } = await supabase
       .from("daily_usage")
@@ -91,13 +134,13 @@ serve(async (req) => {
         results,
         timestamp: new Date().toISOString(),
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: jsonHeaders },
     );
   } catch (error) {
     console.error("Error in cleanup-old-data:", error);
     return new Response(
       JSON.stringify({ error: "Internal server error", details: String(error) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: jsonHeaders },
     );
   }
 });
