@@ -22,6 +22,7 @@ export interface UserWithSubscription {
 interface AdminUsersPageResult {
   rows: UserWithSubscription[];
   totalCount: number;
+  statsLastRefreshedAt: string | null;
 }
 
 interface UseUsersWithSubscriptionsParams {
@@ -51,6 +52,7 @@ async function fetchUsersWithSubscriptions({ page, pageSize, search }: UseUsersW
   return {
     rows,
     totalCount: Number(payload?.total_count) || 0,
+    statsLastRefreshedAt: payload?.stats_last_refreshed_at ?? null,
   };
 }
 
