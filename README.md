@@ -70,19 +70,18 @@ This endpoint is intended for server-to-server cron only.
 
 ### Required Edge Function settings
 
-- In `supabase/config.toml`, keep JWT verification enabled:
-  - `[functions.cleanup-old-data].verify_jwt = true`
+- In `supabase/config.toml`, disable platform JWT verification for this function and rely on a dedicated cron secret header:
+  - `[functions.cleanup-old-data].verify_jwt = false`
 - Configure a shared secret in function env:
   - `CRON_SECRET=<strong-random-secret>`
 
-### Allowed authentication methods
+### Authentication method
 
-`cleanup-old-data` accepts one of these:
+`cleanup-old-data` accepts only:
 
-1. **Supabase service JWT** via `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`
-2. **Cron secret** via `x-cron-secret: <CRON_SECRET>`
+1. **Cron secret** via `x-cron-secret: <CRON_SECRET>`
 
-If no auth is provided, it returns `401`. If auth is present but invalid, it returns `403`.
+Any missing/invalid credential receives a minimal `401 Unauthorized` response.
 
 ### Deployment checklist
 
@@ -98,6 +97,15 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... CRON_SECRET=... ATTEMPT_LOG_R
 supabase functions deploy cleanup-old-data
 ```
 
-3. Configure your scheduler to call `POST /functions/v1/cleanup-old-data` with either:
-   - `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`, or
-   - `x-cron-secret: <CRON_SECRET>`
+3. Configure your scheduler to call `POST /functions/v1/cleanup-old-data` with the cron secret header only:
+
+```bash
+curl -X POST "https://<project-ref>.supabase.co/functions/v1/cleanup-old-data" \
+  -H "Content-Type: application/json" \
+  -H "x-cron-secret: <CRON_SECRET>"
+```
+
+Security notes for scheduler setup:
+- Store `CRON_SECRET` only in the scheduler's encrypted secret store (never inline in job definitions).
+- Rotate `CRON_SECRET` periodically and immediately after any incident.
+- Do not send `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` to this endpoint.

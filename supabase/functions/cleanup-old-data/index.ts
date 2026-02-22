@@ -10,35 +10,17 @@ const jsonHeaders = {
   "Content-Type": "application/json",
 };
 
-const getBearerToken = (req: Request): string | null => {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.toLowerCase().startsWith("bearer ")) {
-    return null;
-  }
-
-  return authHeader.slice(7).trim();
-};
-
 const authorizeRequest = (req: Request): Response | null => {
-  const bearerToken = getBearerToken(req);
   const cronSecretHeader = req.headers.get("x-cron-secret");
 
-  const hasServiceJwt = bearerToken === SUPABASE_SERVICE_ROLE_KEY;
   const hasValidCronSecret = Boolean(
     CRON_SECRET && cronSecretHeader && cronSecretHeader === CRON_SECRET,
   );
 
-  if (!bearerToken && !cronSecretHeader) {
+  if (!hasValidCronSecret) {
     return new Response(
-      JSON.stringify({ error: "Missing authentication" }),
+      JSON.stringify({ error: "Unauthorized" }),
       { status: 401, headers: jsonHeaders },
-    );
-  }
-
-  if (!hasServiceJwt && !hasValidCronSecret) {
-    return new Response(
-      JSON.stringify({ error: "Forbidden" }),
-      { status: 403, headers: jsonHeaders },
     );
   }
 
