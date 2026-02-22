@@ -1,16 +1,11 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
-import { supabase } from "@/integrations/supabase/client";
-import { Crown, Zap, Sparkles, Brain, Check, AlertTriangle, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Crown, Zap, Sparkles, Brain, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 const toPersianNumber = (num: number): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -88,97 +83,10 @@ const formatPrice = (price: number) => {
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
-  const { subscription, isLoading, refetch } = useSubscription();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
+  const { subscription, isLoading } = useSubscription();
 
   const currentPlan = subscription?.plan || "free";
   const remainingToday = subscription ? subscription.daily_limit - subscription.today_usage : 10;
-
-  // Handle payment verification from Zarinpal callback
-  useEffect(() => {
-    const verifyPayment = async () => {
-      const shouldVerify = searchParams.get("verify");
-      const authority = searchParams.get("Authority");
-      const status = searchParams.get("Status");
-      
-      // Handle already processed payments
-      const paymentStatus = searchParams.get("payment");
-      if (paymentStatus === "success") {
-        const refId = searchParams.get("ref");
-        toast.success(`پرداخت موفق! کد پیگیری: ${refId}`, { duration: 5000 });
-        refetch();
-        setSearchParams({});
-        return;
-      } else if (paymentStatus === "failed") {
-        toast.error("پرداخت ناموفق بود. لطفاً دوباره تلاش کنید.");
-        setSearchParams({});
-        return;
-      }
-
-      // Verify payment with edge function
-      if (shouldVerify && authority) {
-        if (status !== "OK") {
-          toast.error("پرداخت لغو شد یا ناموفق بود.");
-          setSearchParams({});
-          return;
-        }
-
-        try {
-          const { data, error } = await supabase.functions.invoke(
-            `zarinpal-payment?action=verify&Authority=${authority}&Status=${status}&callback=miniapp`
-          );
-
-          if (error) throw error;
-
-          if (data?.success) {
-            toast.success(`پرداخت موفق! کد پیگیری: ${data.ref_id}`, { duration: 5000 });
-            refetch();
-          } else {
-            toast.error("تأیید پرداخت ناموفق بود.");
-          }
-        } catch (error) {
-          console.error("Verification error:", error);
-          toast.error("خطا در تأیید پرداخت.");
-        }
-        setSearchParams({});
-      }
-    };
-
-    verifyPayment();
-  }, [searchParams, setSearchParams, refetch]);
-
-  const handlePurchase = async (planId: string, duration: "monthly" | "quarterly") => {
-    if (!user) {
-      toast.error("لطفاً ابتدا وارد حساب خود شوید");
-      return;
-    }
-
-    setPurchasingPlan(`${planId}-${duration}`);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke("zarinpal-payment?action=create", {
-        body: {
-          user_id: user.id,
-          plan: planId,
-          duration: duration,
-        },
-      });
-
-      if (error) throw error;
-      
-      if (data?.payment_url) {
-        // Redirect to Zarinpal payment page
-        window.location.href = data.payment_url;
-      } else {
-        throw new Error("No payment URL received");
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      toast.error("خطا در ایجاد درخواست پرداخت. لطفاً دوباره تلاش کنید.");
-      setPurchasingPlan(null);
-    }
-  };
 
   return (
     <AppLayout>
@@ -193,14 +101,6 @@ export default function SubscriptionPage() {
             با اشتراک ویژه، بدون محدودیت تمرین کن
           </p>
         </div>
-
-        {/* VPN Warning */}
-        <Alert className="mb-6 border-warning/50 bg-warning/10 animate-fade-in" style={{ animationDelay: "0.05s" }}>
-          <AlertTriangle className="h-5 w-5 text-warning" />
-          <AlertDescription className="text-warning font-medium">
-            توجه مهم: قبل از تهیه اشتراک، حتماً VPN خود را خاموش کنید. در غیر این صورت پرداخت با مشکل مواجه خواهد شد.
-          </AlertDescription>
-        </Alert>
 
         {/* Current Status */}
         {user && !isLoading && (
@@ -239,7 +139,6 @@ export default function SubscriptionPage() {
           {plans.map((plan, index) => {
             const Icon = plan.icon;
             const isCurrentPlan = currentPlan === plan.id;
-            const canPurchase = plan.price && !plan.comingSoon && !isCurrentPlan;
             
             return (
               <Card
@@ -302,35 +201,6 @@ export default function SubscriptionPage() {
                       <span className="text-success">(صرفه‌جویی {toPersianNumber(Math.round(((plan.price.monthly * 3 - plan.price.quarterly) / (plan.price.monthly * 3)) * 100))}٪)</span>
                     </div>
                   )}
-
-                  {/* Purchase Buttons */}
-                  {canPurchase && user && (
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => handlePurchase(plan.id, "monthly")}
-                        disabled={purchasingPlan !== null}
-                      >
-                        {purchasingPlan === `${plan.id}-monthly` ? (
-                          <Loader2 className="w-4 h-4 animate-spin ml-1" />
-                        ) : null}
-                        ماهانه
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => handlePurchase(plan.id, "quarterly")}
-                        disabled={purchasingPlan !== null}
-                      >
-                        {purchasingPlan === `${plan.id}-quarterly` ? (
-                          <Loader2 className="w-4 h-4 animate-spin ml-1" />
-                        ) : null}
-                        ۳ ماهه
-                      </Button>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             );
@@ -342,16 +212,20 @@ export default function SubscriptionPage() {
           <Card className="mt-6 border-2 border-dashed border-muted animate-fade-in" style={{ animationDelay: "0.4s" }}>
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground">
-                برای خرید اشتراک، ابتدا وارد حساب کاربری خود شوید
+                برای دریافت اشتراک، ابتدا وارد حساب کاربری خود شوید
               </p>
             </CardContent>
           </Card>
         )}
 
         {/* Payment Info */}
-        <div className="mt-6 text-center text-xs text-muted-foreground animate-fade-in" style={{ animationDelay: "0.45s" }}>
-          <p>پرداخت امن از طریق درگاه زرین‌پال</p>
-          <p className="mt-1">پس از پرداخت موفق، اشتراک شما به صورت خودکار فعال می‌شود</p>
+        <div className="mt-6 text-center animate-fade-in" style={{ animationDelay: "0.45s" }}>
+          <p className="text-sm text-muted-foreground">برای دریافت اشتراک به آیدی @psynex_op در تلگرام پیام دهید</p>
+          <Button asChild className="mt-3 w-full">
+            <a href="https://t.me/psynex_op" target="_blank" rel="noopener noreferrer">
+              ارتباط در تلگرام برای فعال‌سازی اشتراک
+            </a>
+          </Button>
         </div>
       </div>
     </AppLayout>
