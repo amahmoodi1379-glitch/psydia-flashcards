@@ -53,7 +53,7 @@ npm run build
 - `src/hooks/`: domain and data hooks
 - `src/contexts/`: auth/theme providers
 - `src/integrations/supabase/`: Supabase client/types
-- `docs/ui-kit-inventory.md`: notes on intentionally retained shadcn/ui kit files
+- `docs/ui-kit-inventory.md`: internal policy for the `template inventory` (archived shadcn/ui primitives in `src/components/ui-archive/`)
 
 ## Unused Code Guardrails
 

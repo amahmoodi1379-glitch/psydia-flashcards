@@ -4,7 +4,7 @@ import ts from 'typescript';
 
 const SRC_ROOT = path.resolve('src');
 const ENTRYPOINTS = [path.resolve('src/main.tsx')];
-const IGNORE_PREFIXES = [path.resolve('src/components/ui')];
+const IGNORE_PREFIXES = [path.resolve('src/components/ui-archive')];
 const IGNORE_FILES = new Set([path.resolve('src/integrations/supabase/types.ts')]);
 
 function walk(dir, acc = []) {
@@ -37,7 +37,7 @@ const program = ts.createProgram(files, options, host);
 const unusedImportDiags = ts
   .getPreEmitDiagnostics(program)
   .filter((d) => [6133, 6192].includes(d.code) && d.file)
-  .filter((d) => !d.file.fileName.includes('/src/components/ui/'))
+  .filter((d) => !d.file.fileName.includes('/src/components/ui-archive/'))
   .map((d) => {
     const msg = ts.flattenDiagnosticMessageText(d.messageText, '\n');
     const { line, character } = d.file.getLineAndCharacterOfPosition(d.start ?? 0);

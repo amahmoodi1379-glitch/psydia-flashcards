@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const SRC_ROOT = 'src';
 const ENTRYPOINTS = ['src/main.tsx'];
+const IGNORE_PREFIXES = ['src/components/ui-archive'];
 const extensions = ['.ts', '.tsx', '.js', '.jsx', '.css'];
 const indexExt = ['index.ts', 'index.tsx', 'index.js', 'index.jsx'];
 
@@ -75,9 +76,11 @@ while (queue.length) {
   }
 }
 
-const unreachable = files.filter((file) => !visited.has(file)).sort();
+const isIgnored = (file) => IGNORE_PREFIXES.some((prefix) => file.startsWith(prefix));
+
+const unreachable = files.filter((file) => !visited.has(file) && !isIgnored(file)).sort();
 const unreferenced = files
-  .filter((file) => reverse.get(file).size === 0 && !ENTRYPOINTS.includes(file) && !file.endsWith('vite-env.d.ts'))
+  .filter((file) => reverse.get(file).size === 0 && !ENTRYPOINTS.includes(file) && !file.endsWith('vite-env.d.ts') && !isIgnored(file))
   .sort();
 
 console.log('=== Import Audit: Files unreachable from entrypoints ===');

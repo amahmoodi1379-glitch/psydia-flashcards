@@ -1,15 +1,13 @@
-# UI Kit Inventory (Archived for Future Use)
+# UI Kit Inventory (Template Archive)
 
-This project was scaffolded with many `shadcn/ui` primitives. Not all of them are used in current product flows.
+برای جلوگیری از شلوغی در `src/components/ui/`، پرایمیتیوهای `shadcn/ui` که در مسیرهای محصول استفاده نمی‌شوند به `src/components/ui-archive/` منتقل می‌شوند.
 
 ## Policy
 
-- `src/components/ui/` is treated as a **component kit archive**.
-- Product code can import from it when needed.
-- Unused checks in CI intentionally ignore this folder to avoid false positives on intentionally preserved primitives.
+- `src/components/ui/` فقط شامل کامپوننت‌های **active** است که import عملی در اپ دارند.
+- `src/components/ui-archive/` به‌عنوان **template inventory** نگهداری می‌شود (برای استفاده‌ی احتمالی آینده).
+- CI برای unused imports/exports روی کد فعال enforce می‌شود و فولدر archive از این check مستثنا است تا false positive ندهد.
 
-## Currently intentionally retained but not yet used
+## Migration Rule
 
-Examples include: `alert-dialog`, `calendar`, `carousel`, `chart`, `command`, `drawer`, `form`, `menubar`, `navigation-menu`, `resizable`, `sheet`, `sidebar`, `toggle-group`, and others.
-
-When a primitive is adopted in product flows, no action is needed other than importing it.
+- وقتی یک کامپوننت archive واقعاً وارد محصول شد، فایل را از `ui-archive` به `ui` برگردانید و importها را از `@/components/ui/...` انجام دهید.
