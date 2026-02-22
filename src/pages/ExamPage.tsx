@@ -167,7 +167,7 @@ export default function ExamPage() {
                     مرور روزانه
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    سوالات بر اساس سیستم SM2 فاصله‌دار
+                    سوالات بر اساس سیستم Leitner/SM2 (تا باکس ۷)
                   </p>
                 </div>
               </div>

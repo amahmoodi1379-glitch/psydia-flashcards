@@ -1,61 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-
-// SM2 Algorithm constants
-const MIN_EASE = 1.3;
-const DEFAULT_EASE = 2.5;
-
-interface SM2Result {
-  boxNumber: number;
-  easeFactor: number;
-  intervalDays: number;
-  nextReviewAt: Date;
-}
-
-function calculateSM2(
-  correct: boolean,
-  currentBox: number,
-  currentEase: number,
-  currentInterval: number
-): SM2Result {
-  let newBox = currentBox;
-  let newEase = currentEase;
-  let newInterval = currentInterval;
-
-  if (correct) {
-    // Move to next box
-    newBox = Math.min(currentBox + 1, 7);
-    
-    // Increase ease factor
-    newEase = currentEase + 0.1;
-    
-    // Calculate new interval based on box number
-    if (newBox === 1) {
-      newInterval = 1;
-    } else if (newBox === 2) {
-      newInterval = 3;
-    } else {
-      newInterval = Math.round(currentInterval * newEase);
-    }
-  } else {
-    // Wrong answer: go back to box 1
-    newBox = 1;
-    newInterval = 1;
-    
-    // Decrease ease factor but keep above minimum
-    newEase = Math.max(MIN_EASE, currentEase - 0.2);
-  }
-
-  const nextReviewAt = new Date();
-  nextReviewAt.setDate(nextReviewAt.getDate() + newInterval);
-
-  return {
-    boxNumber: newBox,
-    easeFactor: newEase,
-    intervalDays: newInterval,
-    nextReviewAt,
-  };
-}
+import { calculateSM2, DEFAULT_EASE } from "@/lib/leitner";
 
 export function useRecordAnswer() {
   const { user } = useAuth();
@@ -88,8 +33,13 @@ export function useRecordAnswer() {
       const currentBox = existingState?.box_number ?? 1;
       const currentEase = existingState?.ease_factor ?? DEFAULT_EASE;
       const currentInterval = existingState?.interval_days ?? 1;
-      
-      const sm2Result = calculateSM2(isCorrect, currentBox, currentEase, currentInterval);
+
+      const sm2Result = calculateSM2(
+        isCorrect,
+        currentBox,
+        currentEase,
+        currentInterval
+      );
 
       // 4. Upsert question state
       if (existingState) {
