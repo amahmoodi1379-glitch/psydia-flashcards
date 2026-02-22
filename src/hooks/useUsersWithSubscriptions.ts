@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface UserWithSubscription {
+export interface UserWithSubscription {
   id: string;
   display_name: string | null;
   telegram_id: string | null;
@@ -11,7 +11,7 @@ interface UserWithSubscription {
   attempt_count: number;
   correct_count: number;
   is_admin: boolean;
-  subscription?: {
+  subscription: {
     plan: string;
     expires_at: string | null;
     is_active: boolean;
@@ -19,65 +19,46 @@ interface UserWithSubscription {
   } | null;
 }
 
-async function fetchUsersWithSubscriptions(): Promise<UserWithSubscription[]> {
-  // First get users stats
-  const { data: users, error: usersError } = await supabase.rpc("get_admin_users_stats");
-
-  if (usersError) {
-    console.error("Error fetching users:", usersError);
-    toast.error("خطا در دریافت کاربران");
-    throw usersError;
-  }
-
-  // Then get all subscriptions
-  const { data: subscriptions, error: subError } = await supabase
-    .from("subscriptions")
-    .select("*");
-
-  if (subError) {
-    console.error("Error fetching subscriptions:", subError);
-  }
-
-  // Get all admin roles
-  const { data: adminRoles, error: rolesError } = await supabase
-    .from("user_roles")
-    .select("user_id")
-    .eq("role", "admin");
-
-  if (rolesError) {
-    console.error("Error fetching admin roles:", rolesError);
-  }
-
-  const subscriptionMap = new Map(
-    (subscriptions || []).map((s) => [s.user_id, s])
-  );
-
-  const adminSet = new Set(
-    (adminRoles || []).map((r) => r.user_id)
-  );
-
-  return (users || []).map((u) => ({
-    id: u.id,
-    display_name: u.display_name,
-    telegram_id: u.telegram_id,
-    created_at: u.created_at,
-    updated_at: u.updated_at,
-    attempt_count: Number(u.attempt_count) || 0,
-    correct_count: Number(u.correct_count) || 0,
-    is_admin: adminSet.has(u.id),
-    subscription: subscriptionMap.get(u.id) ? {
-      plan: subscriptionMap.get(u.id)!.plan,
-      expires_at: subscriptionMap.get(u.id)!.expires_at,
-      is_active: subscriptionMap.get(u.id)!.is_active,
-      duration: subscriptionMap.get(u.id)!.duration,
-    } : null,
-  }));
+interface AdminUsersPageResult {
+  rows: UserWithSubscription[];
+  totalCount: number;
 }
 
-export function useUsersWithSubscriptions() {
+interface UseUsersWithSubscriptionsParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+}
+
+async function fetchUsersWithSubscriptions({ page, pageSize, search }: UseUsersWithSubscriptionsParams): Promise<AdminUsersPageResult> {
+  const normalizedSearch = search?.trim() || null;
+
+  const { data, error } = await supabase.rpc("get_admin_users_page", {
+    _page: page,
+    _page_size: pageSize,
+    _search: normalizedSearch,
+  });
+
+  if (error) {
+    console.error("Error fetching users:", error);
+    toast.error("خطا در دریافت کاربران");
+    throw error;
+  }
+
+  const payload = data?.[0];
+  const rows = Array.isArray(payload?.rows) ? (payload.rows as UserWithSubscription[]) : [];
+
+  return {
+    rows,
+    totalCount: Number(payload?.total_count) || 0,
+  };
+}
+
+export function useUsersWithSubscriptions(params: UseUsersWithSubscriptionsParams) {
   return useQuery({
-    queryKey: ["admin-users-subscriptions"],
-    queryFn: fetchUsersWithSubscriptions,
-    staleTime: 2 * 60 * 1000, // 2 minutes cache
+    queryKey: ["admin-users-subscriptions", params.page, params.pageSize, params.search?.trim() || ""],
+    queryFn: () => fetchUsersWithSubscriptions(params),
+    staleTime: 2 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
   });
 }

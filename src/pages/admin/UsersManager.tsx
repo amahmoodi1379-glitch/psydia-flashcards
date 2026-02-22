@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Loader2, Search, ChevronRight, ChevronLeft, Edit, Crown, Shield } from 'lucide-react';
-import { useUsersWithSubscriptions } from '@/hooks/useUsersWithSubscriptions';
+import { useUsersWithSubscriptions, type UserWithSubscription } from '@/hooks/useUsersWithSubscriptions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -37,31 +37,39 @@ const PLAN_COLORS: Record<string, string> = {
 };
 
 export default function UsersManager() {
-  const { data: allUsers = [], isLoading } = useUsersWithSubscriptions();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [editingUser, setEditingUser] = useState<typeof allUsers[0] | null>(null);
+  const [editingUser, setEditingUser] = useState<UserWithSubscription | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>('free');
   const [selectedDuration, setSelectedDuration] = useState<string>('monthly');
   const [expiryDays, setExpiryDays] = useState<string>('30');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
+  const { data, isLoading, isFetching } = useUsersWithSubscriptions({
+    page: currentPage,
+    pageSize: ITEMS_PER_PAGE,
+    search: debouncedSearchQuery,
+  });
 
-  const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return allUsers;
-    const query = searchQuery.toLowerCase();
-    return allUsers.filter(user => 
-      user.display_name?.toLowerCase().includes(query) ||
-      user.telegram_id?.toLowerCase().includes(query)
-    );
-  }, [allUsers, searchQuery]);
+  const users = data?.rows ?? [];
+  const totalCount = data?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
 
-  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-  const paginatedUsers = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredUsers, currentPage]);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Auto-update expiryDays when duration changes (only for new subscriptions or explicit change)
   const handleDurationChange = (newDuration: string) => {
@@ -80,7 +88,7 @@ export default function UsersManager() {
     setCurrentPage(1);
   };
 
-  const handleEditClick = (user: typeof allUsers[0]) => {
+  const handleEditClick = (user: UserWithSubscription) => {
     setEditingUser(user);
     setSelectedPlan(user.subscription?.plan || 'free');
     setSelectedDuration(user.subscription?.duration || 'monthly');
@@ -148,7 +156,7 @@ export default function UsersManager() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>لیست کاربران ({filteredUsers.length.toLocaleString('fa-IR')} نفر)</CardTitle>
+            <CardTitle>لیست کاربران ({totalCount.toLocaleString('fa-IR')} نفر)</CardTitle>
             <div className="flex items-center gap-2">
               <Input
                 placeholder="جستجو نام یا آیدی تلگرام..."
@@ -156,7 +164,7 @@ export default function UsersManager() {
                 onChange={(e) => handleSearch(e.target.value)}
                 className="w-64"
               />
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" disabled>
                 <Search className="h-4 w-4" />
               </Button>
             </div>
@@ -169,6 +177,12 @@ export default function UsersManager() {
             </div>
           ) : (
             <>
+              {isFetching && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  در حال بروزرسانی...
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -183,7 +197,7 @@ export default function UsersManager() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedUsers.map((user) => (
+                  {users.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>{user.display_name || '-'}</TableCell>
                       <TableCell className="font-mono text-sm">{user.telegram_id || '-'}</TableCell>
@@ -219,7 +233,7 @@ export default function UsersManager() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {paginatedUsers.length === 0 && (
+                  {users.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                         {searchQuery ? 'هیچ کاربری با این مشخصات یافت نشد' : 'هیچ کاربری یافت نشد'}
