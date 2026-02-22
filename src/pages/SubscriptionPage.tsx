@@ -162,7 +162,6 @@ export default function SubscriptionPage() {
           user_id: user.id,
           plan: planId,
           duration: duration,
-          callback_type: "miniapp",
         },
       });
 
