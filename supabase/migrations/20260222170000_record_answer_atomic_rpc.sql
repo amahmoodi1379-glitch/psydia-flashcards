@@ -33,7 +33,7 @@ DECLARE
   v_ease double precision;
   v_interval integer;
   v_next_review_at timestamptz;
-  v_was_inserted boolean := false;
+  v_attempt_id uuid;
   v_plan subscription_plan;
   v_daily_limit integer;
   v_current_usage integer := 0;
@@ -63,11 +63,12 @@ BEGIN
   END IF;
 
   IF p_client_request_id IS NOT NULL THEN
-    PERFORM 1
-    FROM public.attempt_logs
-    WHERE user_id = v_user_id AND client_request_id = p_client_request_id;
+    INSERT INTO public.attempt_logs(user_id, question_id, selected_index, is_correct, client_request_id)
+    VALUES (v_user_id, p_question_id, p_selected_index, p_is_correct, p_client_request_id)
+    ON CONFLICT (user_id, client_request_id) WHERE client_request_id IS NOT NULL DO NOTHING
+    RETURNING id INTO v_attempt_id;
 
-    IF FOUND THEN
+    IF v_attempt_id IS NULL THEN
       SELECT *
       INTO v_existing
       FROM public.user_question_state
@@ -86,6 +87,11 @@ BEGIN
   END IF;
 
   IF v_plan = 'free' AND v_current_usage >= v_daily_limit THEN
+    IF v_attempt_id IS NOT NULL THEN
+      DELETE FROM public.attempt_logs
+      WHERE id = v_attempt_id;
+    END IF;
+
     SELECT *
     INTO v_existing
     FROM public.user_question_state
@@ -111,27 +117,10 @@ BEGIN
     v_current_usage := v_current_usage + 1;
   END IF;
 
-  INSERT INTO public.attempt_logs(user_id, question_id, selected_index, is_correct, client_request_id)
-  VALUES (v_user_id, p_question_id, p_selected_index, p_is_correct, p_client_request_id)
-  ON CONFLICT (user_id, client_request_id) WHERE client_request_id IS NOT NULL DO NOTHING;
-
-  GET DIAGNOSTICS v_was_inserted = ROW_COUNT;
-
-  IF p_client_request_id IS NOT NULL AND NOT v_was_inserted THEN
-    SELECT *
-    INTO v_existing
-    FROM public.user_question_state
-    WHERE user_id = v_user_id AND question_id = p_question_id;
-
-    RETURN QUERY
-    SELECT true,
-           true,
-           CASE WHEN v_plan = 'free' THEN GREATEST(v_daily_limit - v_current_usage, 0) ELSE NULL END,
-           COALESCE(v_existing.box_number, 1),
-           COALESCE(v_existing.ease_factor, 2.5),
-           COALESCE(v_existing.interval_days, 1),
-           COALESCE(v_existing.next_review_at, now());
-    RETURN;
+  IF p_client_request_id IS NULL THEN
+    INSERT INTO public.attempt_logs(user_id, question_id, selected_index, is_correct, client_request_id)
+    VALUES (v_user_id, p_question_id, p_selected_index, p_is_correct, p_client_request_id)
+    RETURNING id INTO v_attempt_id;
   END IF;
 
   SELECT *

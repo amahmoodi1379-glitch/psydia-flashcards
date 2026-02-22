@@ -19,19 +19,25 @@ assert.match(
 assert.match(
   migrationSql,
   /IF v_plan = 'free' AND v_current_usage >= v_daily_limit THEN[\s\S]*RETURN QUERY[\s\S]*false,\s*\n\s*false,[\s\S]*RETURN;/i,
-  'RPC must return quota_allowed=false before any attempt log insert when quota is exhausted',
+  'RPC must return quota_allowed=false when quota is exhausted',
 );
 
 assert.match(
   migrationSql,
-  /INSERT INTO public\.daily_usage[\s\S]*ON CONFLICT \(user_id, usage_date\)[\s\S]*INSERT INTO public\.attempt_logs[\s\S]*ON CONFLICT \(user_id, client_request_id\).*DO NOTHING[\s\S]*INSERT INTO public\.user_question_state[\s\S]*ON CONFLICT \(user_id, question_id\)\s*DO UPDATE/is,
-  'RPC must update usage, then idempotent attempt_logs, then upsert user_question_state in one flow',
+  /IF p_client_request_id IS NOT NULL THEN[\s\S]*INSERT INTO public\.attempt_logs[\s\S]*ON CONFLICT \(user_id, client_request_id\).*DO NOTHING[\s\S]*RETURNING id INTO v_attempt_id;[\s\S]*IF v_attempt_id IS NULL THEN[\s\S]*RETURN QUERY[\s\S]*SELECT true,\s*\n\s*true,/is,
+  'RPC must enforce idempotency by attempting attempt_logs insert first and returning already_processed=true on conflicts',
 );
 
 assert.match(
   migrationSql,
-  /IF p_client_request_id IS NOT NULL THEN[\s\S]*FROM public\.attempt_logs[\s\S]*IF FOUND THEN[\s\S]*RETURN QUERY[\s\S]*SELECT true,\s*\n\s*true,/is,
-  'RPC must preserve idempotent already_processed path by returning current state for previously successful request ids',
+  /IF v_plan = 'free' THEN[\s\S]*INSERT INTO public\.daily_usage[\s\S]*ON CONFLICT \(user_id, usage_date\)[\s\S]*DO UPDATE SET question_count = public\.daily_usage\.question_count \+ 1;[\s\S]*IF p_client_request_id IS NULL THEN[\s\S]*INSERT INTO public\.attempt_logs[\s\S]*INSERT INTO public\.user_question_state[\s\S]*ON CONFLICT \(user_id, question_id\)\s*DO UPDATE/is,
+  'RPC must increment daily usage only after idempotency gate, then continue with state update flow',
+);
+
+assert.match(
+  migrationSql,
+  /IF v_plan = 'free' AND v_current_usage >= v_daily_limit THEN[\s\S]*IF v_attempt_id IS NOT NULL THEN[\s\S]*DELETE FROM public\.attempt_logs[\s\S]*RETURN QUERY[\s\S]*false,\s*\n\s*false,/is,
+  'RPC must rollback the optimistic attempt insert when quota is exhausted',
 );
 
 const recordAnswerSource = readFileSync('src/lib/recordAnswer.ts', 'utf8');
