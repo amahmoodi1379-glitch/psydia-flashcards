@@ -2,6 +2,9 @@
 CREATE INDEX IF NOT EXISTS idx_attempt_logs_user_is_correct
 ON public.attempt_logs(user_id, is_correct);
 
+CREATE INDEX IF NOT EXISTS idx_attempt_logs_user_id
+ON public.attempt_logs(user_id);
+
 CREATE MATERIALIZED VIEW IF NOT EXISTS public.user_attempt_stats_mv
 AS
 SELECT
@@ -78,23 +81,36 @@ BEGIN
     LIMIT v_page_size
     OFFSET (v_page - 1) * v_page_size
   ),
-  -- Fallback live aggregation constrained to current page users only
+  -- First read pre-aggregated stats (materialized view).
+  mv_stats AS (
+    SELECT
+      pu.id AS user_id,
+      mv.attempt_count,
+      mv.correct_count
+    FROM paged_users pu
+    LEFT JOIN public.user_attempt_stats_mv mv ON mv.user_id = pu.id
+  ),
+  -- Fallback live aggregation constrained to users missing MV rows.
+  missing_mv_users AS (
+    SELECT ms.user_id
+    FROM mv_stats ms
+    WHERE ms.attempt_count IS NULL
+  ),
   attempt_stats_live AS (
     SELECT al.user_id,
            COUNT(*)::bigint AS attempt_count,
            COUNT(*) FILTER (WHERE al.is_correct = true)::bigint AS correct_count
-    FROM paged_users pu
-    JOIN attempt_logs al ON al.user_id = pu.id
+    FROM missing_mv_users mmu
+    JOIN attempt_logs al ON al.user_id = mmu.user_id
     GROUP BY al.user_id
   ),
   attempt_stats AS (
     SELECT
-      pu.id AS user_id,
-      COALESCE(mv.attempt_count, asl.attempt_count, 0)::bigint AS attempt_count,
-      COALESCE(mv.correct_count, asl.correct_count, 0)::bigint AS correct_count
-    FROM paged_users pu
-    LEFT JOIN public.user_attempt_stats_mv mv ON mv.user_id = pu.id
-    LEFT JOIN attempt_stats_live asl ON asl.user_id = pu.id
+      ms.user_id,
+      COALESCE(ms.attempt_count, asl.attempt_count, 0)::bigint AS attempt_count,
+      COALESCE(ms.correct_count, asl.correct_count, 0)::bigint AS correct_count
+    FROM mv_stats ms
+    LEFT JOIN attempt_stats_live asl ON asl.user_id = ms.user_id
   )
   SELECT
     COALESCE(
