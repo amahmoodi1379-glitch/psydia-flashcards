@@ -13,9 +13,11 @@ interface TelegramUser {
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  telegramUser: TelegramUser | null;
+  telegramUser?: TelegramUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithTelegram: (initData: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -26,58 +28,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [authAttempted, setAuthAttempted] = useState(false);
 
-  // Initialize Telegram auth
+  // Initialize primary auth session handling
   useEffect(() => {
-    const initTelegramAuth = async () => {
-      // Check for existing session first
+    const initAuth = async () => {
       const { data: { session: existingSession } } = await supabase.auth.getSession();
-      
-      if (existingSession) {
-        setSession(existingSession);
-        setUser(existingSession.user);
-        setIsLoading(false);
-        return;
-      }
-
-      // If no session and we're in Telegram, authenticate
-      const tg = window.Telegram?.WebApp;
-      const initData = tg?.initData;
-
-      if (initData && initData.length > 0) {
-        try {
-          console.log('Authenticating with Telegram...');
-          
-          const { data, error } = await supabase.functions.invoke('telegram-auth', {
-            body: { initData }
-          });
-
-          if (error) {
-            console.error('Telegram auth error:', error);
-            setIsLoading(false);
-            setAuthAttempted(true);
-            return;
-          }
-
-          if (data?.session) {
-            // Set the session in Supabase client
-            await supabase.auth.setSession({
-              access_token: data.session.access_token,
-              refresh_token: data.session.refresh_token,
-            });
-            
-            setSession(data.session);
-            setUser(data.user);
-            setTelegramUser(data.telegramUser);
-          }
-        } catch (err) {
-          console.error('Telegram auth failed:', err);
-        }
-      }
-
+      setSession(existingSession);
+      setUser(existingSession?.user ?? null);
       setIsLoading(false);
-      setAuthAttempted(true);
     };
 
     // Set up auth state listener
@@ -92,14 +50,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Small delay to ensure Telegram SDK is loaded
-    const timer = setTimeout(initTelegramAuth, 150);
+    initAuth();
 
     return () => {
-      clearTimeout(timer);
       subscription.unsubscribe();
     };
   }, []);
+
+  const signInWithPassword = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message ?? null };
+  };
+
+  const signInWithTelegram = async (initData: string) => {
+    const { data, error } = await supabase.functions.invoke('telegram-auth', {
+      body: { initData },
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    if (!data?.session) {
+      return { error: 'Telegram session data is missing.' };
+    }
+
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+
+    if (sessionError) {
+      return { error: sessionError.message };
+    }
+
+    setTelegramUser(data.telegramUser ?? null);
+    return { error: null };
+  };
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -113,6 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       telegramUser,
       isLoading, 
       isAuthenticated: !!session,
+      signInWithPassword,
+      signInWithTelegram,
       signOut 
     }}>
       {children}
