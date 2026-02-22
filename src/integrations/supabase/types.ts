@@ -578,6 +578,7 @@ export type Database = {
         Args: { _page?: number; _page_size?: number; _search?: string }
         Returns: {
           rows: Json
+          stats_last_refreshed_at: string | null
           total_count: number
         }[]
       }

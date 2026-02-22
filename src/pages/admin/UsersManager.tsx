@@ -55,7 +55,16 @@ export default function UsersManager() {
 
   const users = data?.rows ?? [];
   const totalCount = data?.totalCount ?? 0;
+  const statsLastRefreshedAt = data?.statsLastRefreshedAt ?? null;
   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
+
+  const formatStatsRefreshTime = (isoTimestamp: string | null) => {
+    if (!isoTimestamp) return 'هنوز انجام نشده';
+    return new Date(isoTimestamp).toLocaleString('fa-IR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+  };
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -156,7 +165,12 @@ export default function UsersManager() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>لیست کاربران ({totalCount.toLocaleString('fa-IR')} نفر)</CardTitle>
+            <div>
+              <CardTitle>لیست کاربران ({totalCount.toLocaleString('fa-IR')} نفر)</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                آخرین بروزرسانی آمار: {formatStatsRefreshTime(statsLastRefreshedAt)}
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <Input
                 placeholder="جستجو نام یا آیدی تلگرام..."
