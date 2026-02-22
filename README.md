@@ -1,76 +1,68 @@
-# Welcome to your Lovable project
+# Psydia Flashcards
 
-## Project info
+A React + TypeScript web app for exam practice, review, and progress tracking with Supabase-backed auth/data.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- React 18 + Vite 5
+- TypeScript
+- TanStack Query
+- React Router
+- Tailwind CSS + shadcn/ui
+- Supabase
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Node.js 20+
+- npm
 
-Changes made via Lovable will be committed automatically to this repo.
+### Install
 
-**Use your preferred IDE**
+```bash
+npm install
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Run in development
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Build production bundle
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm run build
+```
 
-**Use GitHub Codespaces**
+## Available Scripts
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `npm run dev`: start Vite dev server
+- `npm run build`: production build
+- `npm run build:dev`: development-mode build
+- `npm run lint`: run ESLint
+- `npm run preview`: preview production build locally
+- `npm run audit:imports`: print files in `src/` that are unreachable or unreferenced from app entrypoints
+- `npm run check:unused`: detect unused imports/exports via the TypeScript-based audit script
 
-## What technologies are used for this project?
+## Project Structure
 
-This project is built with:
+- `src/pages/`: route pages (exam, review, profile, auth, admin)
+- `src/components/`: reusable UI and feature components
+- `src/hooks/`: domain and data hooks
+- `src/contexts/`: auth/theme providers
+- `src/integrations/supabase/`: Supabase client/types
+- `docs/ui-kit-inventory.md`: notes on intentionally retained shadcn/ui kit files
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Unused Code Guardrails
 
-## How can I deploy this project?
+CI runs `.github/workflows/unused-check.yml` on push/PR and executes:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+1. `npm run check:unused`
+2. `npm run audit:imports`
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This keeps unused imports/exports/files from growing silently.
 
 ## Secure cron for `cleanup-old-data`
 
@@ -109,5 +101,3 @@ supabase functions deploy cleanup-old-data
 3. Configure your scheduler to call `POST /functions/v1/cleanup-old-data` with either:
    - `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`, or
    - `x-cron-secret: <CRON_SECRET>`
-
-> CORS is intentionally not open for this function because it is not intended for browser clients.

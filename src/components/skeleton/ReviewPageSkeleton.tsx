@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function QuestionCardSkeleton() {
+function QuestionCardSkeleton() {
   return (
     <div className="flex flex-col gap-4 w-full">
       {/* Question stem skeleton */}

@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Plus, Pencil, Trash2, Loader2, BookOpen, FolderTree, FileText, ChevronLeft } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, BookOpen, FolderTree, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 interface Subject {
   id: string;

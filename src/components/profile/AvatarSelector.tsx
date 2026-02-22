@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-export const ANIMAL_AVATARS = [
+const ANIMAL_AVATARS = [
   { emoji: "🦁", name: "شیر" },
   { emoji: "🐯", name: "ببر" },
   { emoji: "🐻", name: "خرس" },

@@ -15,8 +15,6 @@ import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { 
   DailyReviewSkeleton, 
   ReviewCardSkeleton, 
-  SubjectSelectorSkeleton,
-  ResumeCardSkeleton 
 } from "@/components/skeleton/ExamPageSkeleton";
 
 const toPersianNumber = (num: number): string => {
