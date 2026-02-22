@@ -588,6 +588,17 @@ export type Database = {
           wrong_count: number
         }[]
       }
+      get_review_questions: {
+        Args: { _filter_id?: string; _filter_type?: string; _limit?: number }
+        Returns: {
+          choices: Json
+          due_count: number
+          id: string
+          new_count: number
+          stem_text: string
+          subtopic_id: string
+        }[]
+      }
       get_hierarchical_mastery: {
         Args: never
         Returns: {
