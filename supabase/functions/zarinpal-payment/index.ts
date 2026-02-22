@@ -82,15 +82,16 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    // Create payment request (supports both telegram_id and user_id)
+    // Create payment request (user-centric with telegram legacy fallback)
     if (req.method === "POST" && action === "create") {
       const body = await req.json();
       const { telegram_id, user_id, plan, duration, callback_type } = body;
+      const isLegacyTelegramFlow = !user_id && !!telegram_id;
 
       // Input validation
-      if (!telegram_id && !user_id) {
+      if (!user_id && !isLegacyTelegramFlow) {
         return new Response(
-          JSON.stringify({ error: "Missing user identifier (telegram_id or user_id)" }),
+          JSON.stringify({ error: "Missing user_id" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -116,7 +117,8 @@ serve(async (req) => {
         );
       }
 
-      if (telegram_id && !isValidTelegramId(telegram_id)) {
+      // Legacy telegram-only flow validation
+      if (isLegacyTelegramFlow && !isValidTelegramId(telegram_id)) {
         return new Response(
           JSON.stringify({ error: "Invalid telegram_id format" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -125,7 +127,7 @@ serve(async (req) => {
 
       let profileId: string;
 
-      // Get user by telegram_id or use user_id directly
+      // Main path: use user_id directly. Legacy path: resolve user by telegram_id.
       if (user_id) {
         profileId = user_id;
       } else {
@@ -155,11 +157,11 @@ serve(async (req) => {
 
       const amount = PLAN_PRICES[plan][duration];
 
-      // Determine callback URL based on callback_type
-      // For miniapp, callback goes directly to the app (must match Zarinpal registered domain)
-      const callbackUrl = callback_type === "miniapp" 
-        ? `${MINI_APP_BASE_URL}/subscription?verify=true`
-        : `${SUPABASE_URL}/functions/v1/zarinpal-payment?action=verify`;
+      // Determine callback URL based on callback_type.
+      // Default callback is miniapp/web and telegram callback is legacy-only.
+      const callbackUrl = callback_type === "telegram"
+        ? `${SUPABASE_URL}/functions/v1/zarinpal-payment?action=verify`
+        : `${MINI_APP_BASE_URL}/subscription?verify=true`;
 
       console.log(`Creating payment for user ${profileId}: plan=${plan}, duration=${duration}, amount=${amount}`);
 
@@ -177,7 +179,7 @@ serve(async (req) => {
             user_id: profileId,
             plan,
             duration,
-            callback_type: callback_type || "telegram",
+            callback_type: callback_type || "miniapp",
           },
         }),
       });
@@ -333,31 +335,54 @@ serve(async (req) => {
       return respondSuccess(refId);
     }
 
-    // Get user subscription status (for bot)
+    // Get user subscription status (user-centric with telegram legacy fallback)
     if (req.method === "GET" && action === "status") {
+      const user_id = url.searchParams.get("user_id");
       const telegram_id = url.searchParams.get("telegram_id");
+      const isLegacyTelegramFlow = !user_id && !!telegram_id;
 
-      if (!telegram_id) {
+      if (!user_id && !isLegacyTelegramFlow) {
         return new Response(
-          JSON.stringify({ error: "Missing telegram_id" }),
+          JSON.stringify({ error: "Missing user_id" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      if (!isValidTelegramId(telegram_id)) {
+      if (user_id && !isValidUUID(user_id)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid user_id format" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Legacy telegram-only flow validation
+      if (isLegacyTelegramFlow && !isValidTelegramId(telegram_id)) {
         return new Response(
           JSON.stringify({ error: "Invalid telegram_id format" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("telegram_id", telegram_id)
-        .single();
+      let profileId = user_id;
 
-      if (!profile) {
+      if (isLegacyTelegramFlow) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("telegram_id", telegram_id)
+          .single();
+
+        if (!profile) {
+          return new Response(
+            JSON.stringify({ plan: "free", is_active: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        profileId = profile.id;
+      }
+
+      if (!profileId) {
         return new Response(
           JSON.stringify({ plan: "free", is_active: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -367,7 +392,7 @@ serve(async (req) => {
       const { data: subscription } = await supabase
         .from("subscriptions")
         .select("*")
-        .eq("user_id", profile.id)
+        .eq("user_id", profileId)
         .single();
 
       if (!subscription) {
