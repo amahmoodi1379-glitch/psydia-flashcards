@@ -1,6 +1,12 @@
--- 1. Add initial admin user
+-- 1. Add initial admin user safely (no-op if auth user does not exist)
+-- For production bootstrap, prefer environment-driven seeding/deploy scripts.
 INSERT INTO public.user_roles (user_id, role)
-VALUES ('dcbe33f1-24da-411f-9c77-bc55bf7e2aa9', 'admin')
+SELECT 'dcbe33f1-24da-411f-9c77-bc55bf7e2aa9'::uuid, 'admin'::app_role
+WHERE EXISTS (
+  SELECT 1
+  FROM auth.users
+  WHERE id = 'dcbe33f1-24da-411f-9c77-bc55bf7e2aa9'::uuid
+)
 ON CONFLICT (user_id, role) DO NOTHING;
 
 -- 2. Create function to get frequently wrong questions
