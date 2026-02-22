@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       attempt_logs: {
         Row: {
+          client_request_id: string | null
           created_at: string
           id: string
           is_correct: boolean
@@ -24,6 +25,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          client_request_id?: string | null
           created_at?: string
           id?: string
           is_correct: boolean
@@ -32,6 +34,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          client_request_id?: string | null
           created_at?: string
           id?: string
           is_correct?: boolean
@@ -694,6 +697,21 @@ export type Database = {
         Returns: boolean
       }
       increment_daily_usage: { Args: { _user_id: string }; Returns: boolean }
+      record_answer_and_update_state: {
+        Args: {
+          p_client_request_id?: string
+          p_is_correct: boolean
+          p_question_id: string
+          p_selected_index: number
+        }
+        Returns: {
+          already_processed: boolean
+          box_number: number
+          ease_factor: number
+          interval_days: number
+          next_review_at: string
+        }[]
+      }
       toggle_admin_role: {
         Args: { _make_admin: boolean; _target_user_id: string }
         Returns: boolean

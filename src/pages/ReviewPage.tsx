@@ -143,7 +143,15 @@ export default function ReviewPage() {
     // Mark question as answered
     if (currentQuestion) {
       setAnsweredQuestions(prev => [...prev, currentQuestion.id]);
-      await recordAnswer(currentQuestion.id, selectedIndex, correct);
+      try {
+        await recordAnswer(currentQuestion.id, selectedIndex, correct);
+      } catch (recordError) {
+        const message =
+          recordError instanceof Error
+            ? recordError.message
+            : "ثبت پاسخ با خطا مواجه شد.";
+        toast.error(message);
+      }
     }
   };
 
