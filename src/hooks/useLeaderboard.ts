@@ -58,9 +58,7 @@ export function useLeaderboard(period: "weekly" | "monthly") {
 
       const functionName = period === "weekly" ? "get_user_weekly_rank" : "get_user_monthly_rank";
       
-      const { data, error } = await supabase.rpc(functionName, {
-        p_user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc(functionName);
 
       if (error) {
         console.error("Error fetching user rank:", error);

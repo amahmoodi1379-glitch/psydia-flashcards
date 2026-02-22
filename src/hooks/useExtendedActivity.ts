@@ -13,7 +13,6 @@ export function useExtendedActivity(days: ActivityRange = 30) {
       if (!user) return [];
 
       const { data, error } = await supabase.rpc("get_extended_activity", {
-        _user_id: user.id,
         _days: days,
       });
 

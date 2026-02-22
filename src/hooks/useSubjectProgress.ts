@@ -50,9 +50,7 @@ export function useSubjectProgress() {
         return result;
       }
 
-      const { data, error } = await supabase.rpc("get_subject_progress", {
-        _user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc("get_subject_progress");
 
       if (error) {
         console.error("Error fetching subject progress:", error);

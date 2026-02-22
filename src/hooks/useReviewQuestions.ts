@@ -83,8 +83,7 @@ export function useReviewQuestions(
         // Handle frequently wrong questions filter
         if (filter.type === "frequently_wrong" && user) {
           const { data: wrongQuestions, error: wrongError } = await supabase.rpc(
-            "get_frequently_wrong_questions",
-            { _user_id: user.id }
+            "get_frequently_wrong_questions"
           );
 
           if (wrongError) throw wrongError;
