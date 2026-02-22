@@ -24,20 +24,20 @@ assert.match(
 
 assert.match(
   migrationSql,
-  /IF p_client_request_id IS NOT NULL THEN[\s\S]*INSERT INTO public\.attempt_logs[\s\S]*ON CONFLICT \(user_id, client_request_id\).*DO NOTHING[\s\S]*RETURNING id INTO v_attempt_id;[\s\S]*IF v_attempt_id IS NULL THEN[\s\S]*RETURN QUERY[\s\S]*SELECT true,\s*\n\s*true,/is,
-  'RPC must enforce idempotency by attempting attempt_logs insert first and returning already_processed=true on conflicts',
+  /IF p_client_request_id IS NOT NULL THEN[\s\S]*SELECT EXISTS \([\s\S]*SELECT 1[\s\S]*FROM public\.attempt_logs[\s\S]*user_id = v_user_id[\s\S]*client_request_id = p_client_request_id[\s\S]*\) INTO v_request_already_logged;[\s\S]*IF v_request_already_logged THEN[\s\S]*RETURN QUERY[\s\S]*SELECT true,\s*\n\s*true,/is,
+  'RPC must check attempt_logs existence before any quota mutation and return already_processed=true when found',
 );
 
 assert.match(
   migrationSql,
-  /IF v_plan = 'free' THEN[\s\S]*WITH quota_upsert AS \([\s\S]*RETURNING question_count[\s\S]*\)[\s\S]*IF v_current_usage IS NULL THEN[\s\S]*RETURN;[\s\S]*END IF;[\s\S]*END IF;[\s\S]*IF p_client_request_id IS NULL THEN[\s\S]*INSERT INTO public\.attempt_logs[\s\S]*INSERT INTO public\.user_question_state[\s\S]*ON CONFLICT \(user_id, question_id\)\s*DO UPDATE/is,
-  'RPC must run atomic quota UPSERT after idempotency gate, then continue with attempt/state writes',
+  /IF p_client_request_id IS NOT NULL THEN[\s\S]*v_request_already_logged[\s\S]*END IF;[\s\S]*IF v_plan = 'free' THEN[\s\S]*WITH quota_upsert AS \([\s\S]*RETURNING question_count[\s\S]*\)[\s\S]*IF v_current_usage IS NULL THEN[\s\S]*RETURN;[\s\S]*END IF;[\s\S]*END IF;[\s\S]*IF p_client_request_id IS NULL THEN[\s\S]*INSERT INTO public\.attempt_logs[\s\S]*ELSE[\s\S]*INSERT INTO public\.attempt_logs[\s\S]*ON CONFLICT \(user_id, client_request_id\).*DO NOTHING[\s\S]*RETURNING id INTO v_attempt_id;[\s\S]*IF v_attempt_id IS NULL THEN[\s\S]*RETURN QUERY[\s\S]*SELECT true,\s*\n\s*true,[\s\S]*END IF;[\s\S]*END IF;[\s\S]*INSERT INTO public\.user_question_state[\s\S]*ON CONFLICT \(user_id, question_id\)\s*DO UPDATE/is,
+  'RPC must run idempotency check, then atomic quota UPSERT, then attempt insert with race-safe already_processed return path',
 );
 
 assert.match(
   migrationSql,
-  /IF v_current_usage IS NULL THEN[\s\S]*IF v_attempt_id IS NOT NULL THEN[\s\S]*DELETE FROM public\.attempt_logs[\s\S]*RETURN QUERY[\s\S]*false,\s*\n\s*false,/is,
-  'RPC must rollback the optimistic attempt insert when atomic quota UPSERT indicates exhaustion',
+  /IF v_current_usage IS NULL THEN[\s\S]*RETURN QUERY[\s\S]*false,\s*\n\s*false,[\s\S]*RETURN;/is,
+  'RPC must return quota_allowed=false on quota exhaustion without deleting attempt_logs rows',
 );
 
 const recordAnswerSource = readFileSync('src/lib/recordAnswer.ts', 'utf8');
