@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 declare global {
   interface Window {
@@ -21,37 +21,27 @@ declare global {
   }
 }
 
+/**
+ * @deprecated This hook no longer gates access to the app.
+ * Use it only for analytics/observability to know whether the session started inside Telegram WebApp.
+ */
 export function useTelegramCheck() {
-  const [isTelegram, setIsTelegram] = useState<boolean | null>(null);
+  const [isTelegram, setIsTelegram] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Bypass Telegram check in development mode
-    if (import.meta.env.DEV) {
-      setIsTelegram(true);
-      setIsLoading(false);
-      return;
-    }
+    const tg = window.Telegram?.WebApp;
+    const isInTelegram = Boolean(tg?.initData && tg.initData.length > 0);
 
-    const checkTelegram = () => {
-      const tg = window.Telegram?.WebApp;
-      // Check if we're inside Telegram Mini App
-      const isInTelegram = !!tg?.initData && tg.initData.length > 0;
-      setIsTelegram(isInTelegram);
-      setIsLoading(false);
-      
-      // Initialize Telegram WebApp if available
-      if (isInTelegram && tg) {
-        tg.ready();
-        tg.expand();
-      }
-    };
-    
-    // Small delay to ensure Telegram SDK is loaded
-    const timer = setTimeout(checkTelegram, 100);
-    
-    return () => clearTimeout(timer);
+    setIsTelegram(isInTelegram);
+    setIsLoading(false);
+
+    if (isInTelegram && tg) {
+      tg.ready();
+    }
   }, []);
 
-  return { isTelegram, isLoading };
+  const source = useMemo<'telegram' | 'web'>(() => (isTelegram ? 'telegram' : 'web'), [isTelegram]);
+
+  return { isTelegram, isLoading, source };
 }

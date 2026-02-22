@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -83,10 +83,6 @@ const LoginPage = () => {
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'ورود'}
             </Button>
           </form>
-
-          <Button asChild variant="link" className="w-full mt-4">
-            <Link to="/auth/telegram">ورود از طریق تلگرام</Link>
-          </Button>
         </CardContent>
       </Card>
     </div>
