@@ -1,3 +1,31 @@
+-- Optimize admin user page aggregations and prepare high-volume stats path
+CREATE INDEX IF NOT EXISTS idx_attempt_logs_user_is_correct
+ON public.attempt_logs(user_id, is_correct);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS public.user_attempt_stats_mv
+AS
+SELECT
+  al.user_id,
+  COUNT(*)::bigint AS attempt_count,
+  COUNT(*) FILTER (WHERE al.is_correct = true)::bigint AS correct_count,
+  MAX(al.created_at) AS last_attempt_at
+FROM public.attempt_logs al
+GROUP BY al.user_id;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_attempt_stats_mv_user_id
+ON public.user_attempt_stats_mv(user_id);
+
+CREATE OR REPLACE FUNCTION public.refresh_user_attempt_stats_mv()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY public.user_attempt_stats_mv;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.get_admin_users_page(
   _page integer DEFAULT 1,
   _page_size integer DEFAULT 20,
@@ -50,12 +78,23 @@ BEGIN
     LIMIT v_page_size
     OFFSET (v_page - 1) * v_page_size
   ),
-  attempt_stats AS (
+  -- Fallback live aggregation constrained to current page users only
+  attempt_stats_live AS (
     SELECT al.user_id,
            COUNT(*)::bigint AS attempt_count,
            COUNT(*) FILTER (WHERE al.is_correct = true)::bigint AS correct_count
-    FROM attempt_logs al
+    FROM paged_users pu
+    JOIN attempt_logs al ON al.user_id = pu.id
     GROUP BY al.user_id
+  ),
+  attempt_stats AS (
+    SELECT
+      pu.id AS user_id,
+      COALESCE(mv.attempt_count, asl.attempt_count, 0)::bigint AS attempt_count,
+      COALESCE(mv.correct_count, asl.correct_count, 0)::bigint AS correct_count
+    FROM paged_users pu
+    LEFT JOIN public.user_attempt_stats_mv mv ON mv.user_id = pu.id
+    LEFT JOIN attempt_stats_live asl ON asl.user_id = pu.id
   )
   SELECT
     COALESCE(
@@ -97,3 +136,6 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_admin_users_page(integer, integer, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_admin_users_page(integer, integer, text) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.refresh_user_attempt_stats_mv() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.refresh_user_attempt_stats_mv() TO service_role;
