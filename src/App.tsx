@@ -15,7 +15,6 @@ import SubscriptionPage from "./pages/SubscriptionPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
-import TelegramAuthPage from "./pages/TelegramAuthPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ContentManager from "./pages/admin/ContentManager";
 import QuestionsManager from "./pages/admin/QuestionsManager";
@@ -47,7 +46,6 @@ const App = () => (
                 <Route path="/subscription" element={<SubscriptionPage />} />
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/auth/telegram" element={<TelegramAuthPage />} />
                 
                 {/* Admin routes - no Telegram guard, uses email auth */}
                 <Route path="/admin" element={<AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>} />
