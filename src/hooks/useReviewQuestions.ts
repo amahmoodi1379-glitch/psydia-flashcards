@@ -58,12 +58,22 @@ export function useReviewQuestions(
   const filterId = filter.id;
 
   useEffect(() => {
+    let active = true;
+
     async function fetchQuestions() {
+      if (!active) {
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
 
       try {
         if ((filterType === "subject" || filterType === "topic" || filterType === "subtopic") && !filterId) {
+          if (!active) {
+            return;
+          }
+
           setQuestions([]);
           setDueCount(0);
           setNewCount(0);
@@ -72,6 +82,10 @@ export function useReviewQuestions(
         }
 
         const rows = await fetchReviewQuestionsRpc(limit, { type: filterType, id: filterId });
+
+        if (!active) {
+          return;
+        }
 
         const counts = rows[0];
         setDueCount(counts?.due_count ?? 0);
@@ -86,14 +100,24 @@ export function useReviewQuestions(
 
         setQuestions(parsed);
       } catch (err) {
+        if (!active) {
+          return;
+        }
+
         console.error("Error fetching review questions:", err);
         setError("خطا در بارگذاری سوالات");
       } finally {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       }
     }
 
     fetchQuestions();
+
+    return () => {
+      active = false;
+    };
   }, [limit, filterType, filterId]);
 
   return { questions, isLoading, error, dueCount, newCount };
@@ -114,11 +138,21 @@ export function useDueCount(filter?: ReviewFilter): {
   const filterId = filter?.id;
 
   useEffect(() => {
+    let active = true;
+
     async function fetchCounts() {
+      if (!active) {
+        return;
+      }
+
       setIsLoading(true);
 
       try {
         if ((filterType === "subject" || filterType === "topic" || filterType === "subtopic") && !filterId) {
+          if (!active) {
+            return;
+          }
+
           setDueCount(0);
           setNewCount(0);
           setTotal(0);
@@ -126,6 +160,11 @@ export function useDueCount(filter?: ReviewFilter): {
         }
 
         const rows = await fetchReviewQuestionsRpc(1, filterType ? { type: filterType, id: filterId } : undefined);
+
+        if (!active) {
+          return;
+        }
+
         const counts = rows[0];
         const due = counts?.due_count ?? 0;
         const fresh = counts?.new_count ?? 0;
@@ -134,13 +173,23 @@ export function useDueCount(filter?: ReviewFilter): {
         setNewCount(fresh);
         setTotal(due + fresh);
       } catch (err) {
+        if (!active) {
+          return;
+        }
+
         console.error("Error fetching due count:", err);
       } finally {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       }
     }
 
     fetchCounts();
+
+    return () => {
+      active = false;
+    };
   }, [filterType, filterId]);
 
   return { dueCount, newCount, total, isLoading };
