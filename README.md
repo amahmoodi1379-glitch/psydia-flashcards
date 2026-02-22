@@ -124,3 +124,9 @@ Security notes for scheduler setup:
 - Store `SUPABASE_SERVICE_ROLE_KEY` only in an encrypted secret manager (never inline in jobs).
 - Restrict callers to cron infrastructure / trusted backend only.
 - Rotate the service role key immediately if exposure is suspected.
+
+## Telegram auth deprecation note
+
+- Telegram login/WebApp auth flow is fully removed from `src/` and Supabase Edge Functions.
+- Deployment pipeline should only deploy active functions (currently `cleanup-old-data` in this repo).
+- `profiles.telegram_id` is intentionally retained only for admin visibility/search and historical audit (see `supabase/migrations/20260301110000_keep_telegram_id_for_admin_audit.sql`).

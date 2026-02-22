@@ -22,7 +22,7 @@ export default function ReviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Read params from URL as a reliable fallback (Telegram WebView may drop navigation state)
+  // Read params from URL as a reliable fallback when navigation state is missing.
   const params = new URLSearchParams(location.search);
   const qpType = params.get("type") as ReviewFilter["type"] | null;
   const qpId = params.get("id") ?? undefined;
