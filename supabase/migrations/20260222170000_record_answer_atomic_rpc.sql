@@ -15,6 +15,8 @@ CREATE OR REPLACE FUNCTION public.record_answer_and_update_state(
 )
 RETURNS TABLE (
   already_processed boolean,
+  quota_allowed boolean,
+  quota_remaining integer,
   box_number integer,
   ease_factor double precision,
   interval_days integer,
@@ -32,6 +34,9 @@ DECLARE
   v_interval integer;
   v_next_review_at timestamptz;
   v_was_inserted boolean := false;
+  v_plan subscription_plan;
+  v_daily_limit integer;
+  v_current_usage integer := 0;
 BEGIN
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -46,6 +51,23 @@ BEGIN
 
   -- If it was already processed for this request id, return current state unchanged
   IF p_client_request_id IS NOT NULL AND NOT v_was_inserted THEN
+    SELECT
+      COALESCE(s.plan, 'free'::subscription_plan),
+      COALESCE(s.daily_limit, 10)
+    INTO v_plan, v_daily_limit
+    FROM profiles p
+    LEFT JOIN subscriptions s ON s.user_id = p.id
+      AND s.is_active = true
+      AND (s.expires_at IS NULL OR s.expires_at > now())
+    WHERE p.id = v_user_id;
+
+    IF v_plan = 'free' THEN
+      SELECT COALESCE(question_count, 0)
+      INTO v_current_usage
+      FROM public.daily_usage
+      WHERE user_id = v_user_id AND usage_date = CURRENT_DATE;
+    END IF;
+
     SELECT *
     INTO v_existing
     FROM public.user_question_state
@@ -53,11 +75,55 @@ BEGIN
 
     RETURN QUERY
     SELECT true,
+           true,
+           CASE WHEN v_plan = 'free' THEN GREATEST(v_daily_limit - v_current_usage, 0) ELSE NULL END,
            COALESCE(v_existing.box_number, 1),
            COALESCE(v_existing.ease_factor, 2.5),
            COALESCE(v_existing.interval_days, 1),
            COALESCE(v_existing.next_review_at, now());
     RETURN;
+  END IF;
+
+  SELECT
+    COALESCE(s.plan, 'free'::subscription_plan),
+    COALESCE(s.daily_limit, 10)
+  INTO v_plan, v_daily_limit
+  FROM profiles p
+  LEFT JOIN subscriptions s ON s.user_id = p.id
+    AND s.is_active = true
+    AND (s.expires_at IS NULL OR s.expires_at > now())
+  WHERE p.id = v_user_id;
+
+  IF v_plan = 'free' THEN
+    SELECT COALESCE(question_count, 0)
+    INTO v_current_usage
+    FROM public.daily_usage
+    WHERE user_id = v_user_id AND usage_date = CURRENT_DATE
+    FOR UPDATE;
+
+    IF v_current_usage >= v_daily_limit THEN
+      SELECT *
+      INTO v_existing
+      FROM public.user_question_state
+      WHERE user_id = v_user_id AND question_id = p_question_id;
+
+      RETURN QUERY
+      SELECT false,
+             false,
+             0,
+             COALESCE(v_existing.box_number, 1),
+             COALESCE(v_existing.ease_factor, 2.5),
+             COALESCE(v_existing.interval_days, 1),
+             COALESCE(v_existing.next_review_at, now());
+      RETURN;
+    END IF;
+
+    INSERT INTO public.daily_usage (user_id, usage_date, question_count)
+    VALUES (v_user_id, CURRENT_DATE, 1)
+    ON CONFLICT (user_id, usage_date)
+    DO UPDATE SET question_count = public.daily_usage.question_count + 1;
+
+    v_current_usage := v_current_usage + 1;
   END IF;
 
   SELECT *
@@ -113,7 +179,13 @@ BEGIN
     next_review_at = EXCLUDED.next_review_at;
 
   RETURN QUERY
-  SELECT false, v_box, v_ease, v_interval, v_next_review_at;
+  SELECT false,
+         true,
+         CASE WHEN v_plan = 'free' THEN GREATEST(v_daily_limit - v_current_usage, 0) ELSE NULL END,
+         v_box,
+         v_ease,
+         v_interval,
+         v_next_review_at;
 END;
 $$;
 

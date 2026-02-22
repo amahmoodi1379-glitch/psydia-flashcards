@@ -72,7 +72,7 @@ export default function ReviewPage() {
   const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
-  const { hasFeature, canUseQuestion, refetch: refetchSubscription } = useSubscription();
+  const { hasFeature, refetch: refetchSubscription } = useSubscription();
   const { saveSession, clearSession } = useSessionPersistence();
   
   // Initialize state from resumed session or defaults
@@ -152,16 +152,15 @@ export default function ReviewPage() {
       answerRequestIdsRef.current.set(currentQuestion.id, requestId);
 
       try {
-        const canProceed = await canUseQuestion(requestId);
-        if (!canProceed) {
+        const result = await recordAnswer(currentQuestion.id, selectedIndex, correct, {
+          clientRequestId: requestId,
+        });
+
+        if (!result.quotaAllowed) {
           toast.error("سهمیه روزانه شما تمام شده است. برای ادامه، اشتراک تهیه کنید.");
           navigate("/subscription");
           return;
         }
-
-        await recordAnswer(currentQuestion.id, selectedIndex, correct, {
-          clientRequestId: requestId,
-        });
 
         setHasAnswered(true);
         setAnswerResult({
