@@ -176,53 +176,6 @@ export type Database = {
           },
         ]
       }
-      payment_logs: {
-        Row: {
-          amount: number
-          authority: string
-          created_at: string
-          duration: Database["public"]["Enums"]["subscription_duration"]
-          id: string
-          plan: Database["public"]["Enums"]["subscription_plan"]
-          ref_id: string | null
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          authority: string
-          created_at?: string
-          duration: Database["public"]["Enums"]["subscription_duration"]
-          id?: string
-          plan: Database["public"]["Enums"]["subscription_plan"]
-          ref_id?: string | null
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          authority?: string
-          created_at?: string
-          duration?: Database["public"]["Enums"]["subscription_duration"]
-          id?: string
-          plan?: Database["public"]["Enums"]["subscription_plan"]
-          ref_id?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null

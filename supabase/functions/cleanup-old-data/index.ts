@@ -38,25 +38,7 @@ serve(async (req) => {
       console.log(`Deleted ${results.daily_usage_deleted} old daily_usage records`);
     }
 
-    // 2. Delete old pending payment logs (older than 24 hours and still pending)
-    const oneDayAgo = new Date();
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-    const { data: deletedPayments, error: paymentError } = await supabase
-      .from("payment_logs")
-      .delete()
-      .eq("status", "pending")
-      .lt("created_at", oneDayAgo.toISOString())
-      .select("id");
-
-    if (paymentError) {
-      console.error("Error deleting old pending payments:", paymentError);
-    } else {
-      results.pending_payments_deleted = deletedPayments?.length || 0;
-      console.log(`Deleted ${results.pending_payments_deleted} old pending payment logs`);
-    }
-
-    // 3. Optional: Delete very old attempt_logs (older than 2 years) - commented out for now
+    // 2. Optional: Delete very old attempt_logs (older than 2 years) - commented out for now
     // Uncomment when database grows significantly
     /*
     const twoYearsAgo = new Date();
@@ -76,7 +58,7 @@ serve(async (req) => {
     }
     */
 
-    // 4. Deactivate expired subscriptions
+    // 3. Deactivate expired subscriptions
     const { data: expiredSubs, error: subError } = await supabase
       .from("subscriptions")
       .update({ is_active: false })
