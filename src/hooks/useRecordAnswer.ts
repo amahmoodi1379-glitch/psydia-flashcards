@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { recordAnswerWithRpc, RecordAnswerError } from "@/lib/recordAnswer";
+import { recordAnswerWithRpc, RecordAnswerError, type RecordAnswerResult } from "@/lib/recordAnswer";
 
 interface RecordAnswerOptions {
   clientRequestId?: string;
@@ -16,12 +16,12 @@ export function useRecordAnswer() {
     selectedIndex: number,
     isCorrect: boolean,
     options?: RecordAnswerOptions
-  ): Promise<void> => {
+  ): Promise<RecordAnswerResult> => {
     if (!user) {
       throw new RecordAnswerError("برای ثبت پاسخ باید وارد حساب شوید.");
     }
 
-    await recordAnswerWithRpc(supabase, {
+    return await recordAnswerWithRpc(supabase, {
       userId: user.id,
       questionId,
       selectedIndex,

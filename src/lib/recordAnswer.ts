@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-const inFlightRequests = new Map<string, Promise<void>>();
+const inFlightRequests = new Map<string, Promise<RecordAnswerResult>>();
 
 export class RecordAnswerError extends Error {
   readonly code?: string;
@@ -11,6 +11,13 @@ export class RecordAnswerError extends Error {
     this.name = "RecordAnswerError";
     this.code = code;
   }
+}
+
+
+export interface RecordAnswerResult {
+  alreadyProcessed: boolean;
+  quotaAllowed: boolean;
+  quotaRemaining: number | null;
 }
 
 export interface RecordAnswerInput {
@@ -45,7 +52,7 @@ const getErrorMessage = (error: { code?: string; message?: string; details?: str
 export async function recordAnswerWithRpc(
   client: Pick<SupabaseClient<Database>, "rpc">,
   input: RecordAnswerInput
-): Promise<void> {
+): Promise<RecordAnswerResult> {
   const requestId = input.clientRequestId ?? crypto.randomUUID();
   const requestKey = `${input.userId}:${input.questionId}:${requestId}`;
 
@@ -55,7 +62,7 @@ export async function recordAnswerWithRpc(
   }
 
   const requestPromise = (async () => {
-    const { error } = await client.rpc("record_answer_and_update_state", {
+    const { data, error } = await client.rpc("record_answer_and_update_state", {
       p_question_id: input.questionId,
       p_selected_index: input.selectedIndex,
       p_is_correct: input.isCorrect,
@@ -65,12 +72,19 @@ export async function recordAnswerWithRpc(
     if (error) {
       throw new RecordAnswerError(getErrorMessage(error), error.code);
     }
+
+    const row = data?.[0];
+    return {
+      alreadyProcessed: row?.already_processed ?? false,
+      quotaAllowed: row?.quota_allowed ?? true,
+      quotaRemaining: row?.quota_remaining ?? null,
+    };
   })();
 
   inFlightRequests.set(requestKey, requestPromise);
 
   try {
-    await requestPromise;
+    return await requestPromise;
   } finally {
     inFlightRequests.delete(requestKey);
   }

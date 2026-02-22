@@ -710,6 +710,8 @@ export type Database = {
           ease_factor: number
           interval_days: number
           next_review_at: string
+          quota_allowed: boolean
+          quota_remaining: number | null
         }[]
       }
       toggle_admin_role: {
