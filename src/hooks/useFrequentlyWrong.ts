@@ -10,9 +10,7 @@ export function useFrequentlyWrong() {
     queryFn: async () => {
       if (!user) return { count: 0, questions: [] };
 
-      const { data, error } = await supabase.rpc("get_frequently_wrong_questions", {
-        _user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc("get_frequently_wrong_questions");
 
       if (error) {
         console.error("Error fetching frequently wrong questions:", error);

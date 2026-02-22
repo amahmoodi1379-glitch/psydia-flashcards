@@ -21,9 +21,7 @@ export function useSubscription() {
     queryFn: async (): Promise<SubscriptionData | null> => {
       if (!user) return null;
 
-      const { data, error } = await supabase.rpc("get_user_subscription", {
-        _user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc("get_user_subscription");
 
       if (error) {
         console.error("Error fetching subscription:", error);
@@ -75,9 +73,7 @@ export function useSubscription() {
     }
 
     const checkPromise = (async () => {
-      const { data, error } = await supabase.rpc("increment_daily_usage", {
-        _user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc("increment_daily_usage");
 
       if (error) {
         console.error("Error incrementing usage:", error);

@@ -23,9 +23,7 @@ export function useMasteryData() {
         return (allSubtopics || []).map((s) => ({ name: s.title, mastery: 0 }));
       }
 
-      const { data, error } = await supabase.rpc("get_subtopic_mastery", {
-        _user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc("get_subtopic_mastery");
 
       if (error) {
         console.error("Error fetching mastery data:", error);

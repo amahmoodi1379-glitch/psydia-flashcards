@@ -63,9 +63,7 @@ export function useHierarchicalMastery() {
         }));
       }
 
-      const { data, error } = await supabase.rpc("get_hierarchical_mastery", {
-        _user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc("get_hierarchical_mastery");
 
       if (error) {
         console.error("Error fetching hierarchical mastery:", error);

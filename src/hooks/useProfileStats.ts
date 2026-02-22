@@ -24,9 +24,7 @@ export function useProfileStats() {
         };
       }
 
-      const { data, error } = await supabase.rpc("get_user_profile_stats", {
-        _user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc("get_user_profile_stats");
 
       if (error) {
         console.error("Error fetching profile stats:", error);

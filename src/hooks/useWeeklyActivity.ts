@@ -40,9 +40,7 @@ export function useWeeklyActivity() {
         return { activityData: emptyWeek, totalWeek: 0 };
       }
 
-      const { data: activityRows, error } = await supabase.rpc("get_weekly_activity", {
-        _user_id: user.id,
-      });
+      const { data: activityRows, error } = await supabase.rpc("get_weekly_activity");
 
       if (error) {
         console.error("Error fetching weekly activity:", error);

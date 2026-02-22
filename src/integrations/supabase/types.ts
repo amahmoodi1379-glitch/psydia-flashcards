@@ -575,21 +575,21 @@ export type Database = {
         }[]
       }
       get_extended_activity: {
-        Args: { _days: number; _user_id: string }
+        Args: { _days: number }
         Returns: {
           activity_count: number
           activity_date: string
         }[]
       }
       get_frequently_wrong_questions: {
-        Args: { _user_id: string }
+        Args: never
         Returns: {
           question_id: string
           wrong_count: number
         }[]
       }
       get_hierarchical_mastery: {
-        Args: { _user_id: string }
+        Args: never
         Returns: {
           subject_id: string
           subject_mastery: number
@@ -616,7 +616,7 @@ export type Database = {
         }[]
       }
       get_subject_progress: {
-        Args: { _user_id: string }
+        Args: never
         Returns: {
           answered_count: number
           subject_name: string
@@ -624,14 +624,14 @@ export type Database = {
         }[]
       }
       get_subtopic_mastery: {
-        Args: { _user_id: string }
+        Args: never
         Returns: {
           mastery_score: number
           subtopic_name: string
         }[]
       }
       get_user_monthly_rank: {
-        Args: { p_month_start?: string; p_user_id: string }
+        Args: { p_month_start?: string }
         Returns: {
           accuracy: number
           correct_count: number
@@ -641,7 +641,7 @@ export type Database = {
         }[]
       }
       get_user_profile_stats: {
-        Args: { _user_id: string }
+        Args: never
         Returns: {
           correct_count: number
           display_name: string
@@ -650,7 +650,7 @@ export type Database = {
         }[]
       }
       get_user_subscription: {
-        Args: { _user_id: string }
+        Args: never
         Returns: {
           daily_limit: number
           expires_at: string
@@ -660,7 +660,7 @@ export type Database = {
         }[]
       }
       get_user_weekly_rank: {
-        Args: { p_user_id: string; p_week_start?: string }
+        Args: { p_week_start?: string }
         Returns: {
           accuracy: number
           correct_count: number
@@ -670,7 +670,7 @@ export type Database = {
         }[]
       }
       get_weekly_activity: {
-        Args: { _user_id: string }
+        Args: never
         Returns: {
           activity_count: number
           activity_date: string
@@ -696,7 +696,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      increment_daily_usage: { Args: { _user_id: string }; Returns: boolean }
+      increment_daily_usage: { Args: never; Returns: boolean }
       record_answer_and_update_state: {
         Args: {
           p_client_request_id?: string
