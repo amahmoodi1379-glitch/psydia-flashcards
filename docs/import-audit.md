@@ -8,9 +8,9 @@ Generated from:
 
 ## 1) Final status of `src/components/ui/*`
 
-All files currently داخل `src/components/ui/` import عملی در اپ دارند (production-used).
+Final audit result: **هیچ فایل بدون production import در `src/components/ui` وجود ندارد.**
 
-Active set:
+Production-used set:
 
 - `accordion.tsx`
 - `badge.tsx`
@@ -31,20 +31,20 @@ Active set:
 - `toaster.tsx`
 - `tooltip.tsx`
 
-## 2) Truly unused/template components
+## 2) Unused/template components
 
-Unused shadcn templates are intentionally kept خارج از مسیر production در:
+Unused shadcn templates intentionally خارج از مسیر production در این مسیر نگهداری می‌شوند:
 
 - `src/components/ui-archive/`
 
-این پوشه inventory/template است و در runtime اپ import نمی‌شود مگر اینکه کامپوننتی به مسیر `src/components/ui/` برگردانده شود.
+در این audit، موردی برای حذف/انتقال جدید از `src/components/ui` پیدا نشد.
 
 ## 3) CI guardrail
 
-CI workflow `.github/workflows/unused-check.yml` now runs:
+CI workflow `.github/workflows/unused-check.yml` checkهای زیر را روی PR و push اجرا می‌کند:
 
 1. `npm run lint:unused`
 2. `npm run check:unused`
 3. `npm run audit:imports`
 
-So unused imports/exports + unreachable file drift are blocked in PR/push checks.
+این guardrail از انباشت مجدد unused imports/exports و drift در import graph جلوگیری می‌کند.

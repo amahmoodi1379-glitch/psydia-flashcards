@@ -11,7 +11,8 @@
     "lint:unused": "node scripts/check-unused.mjs",
     "preview": "vite preview",
     "audit:imports": "node scripts/audit-imports.mjs",
-    "check:unused": "node scripts/check-unused.mjs"
+    "check:unused": "node scripts/check-unused.mjs",
+    "ci:unused": "npm run lint:unused && npm run check:unused && npm run audit:imports"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

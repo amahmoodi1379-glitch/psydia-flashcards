@@ -16,6 +16,4 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run lint:unused
-      - run: npm run check:unused
-      - run: npm run audit:imports
+      - run: npm run ci:unused
