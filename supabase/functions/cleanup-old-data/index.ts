@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const CLEANUP_CRON_SECRET = Deno.env.get("CLEANUP_CRON_SECRET") || "";
 const ATTEMPT_LOG_RETENTION_DAYS = Number(Deno.env.get("ATTEMPT_LOG_RETENTION_DAYS") || "180");
 
 const jsonHeaders = {
@@ -10,17 +11,26 @@ const jsonHeaders = {
 };
 
 const authorizeRequest = (req: Request): Response | null => {
-  const authHeader = req.headers.get("authorization") || "";
-  const [scheme, token] = authHeader.split(" ");
-
-  const hasValidServiceJwt = scheme?.toLowerCase() === "bearer"
-    && token
-    && token === SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!hasValidServiceJwt) {
+  if (!CLEANUP_CRON_SECRET) {
     return new Response(
-      JSON.stringify({ error: "Unauthorized" }),
+      JSON.stringify({ error: "internal_server_error" }),
+      { status: 500, headers: jsonHeaders },
+    );
+  }
+
+  const cronSecret = req.headers.get("x-cron-secret");
+
+  if (!cronSecret) {
+    return new Response(
+      JSON.stringify({ error: "unauthorized" }),
       { status: 401, headers: jsonHeaders },
+    );
+  }
+
+  if (cronSecret !== CLEANUP_CRON_SECRET) {
+    return new Response(
+      JSON.stringify({ error: "forbidden" }),
+      { status: 403, headers: jsonHeaders },
     );
   }
 
