@@ -45,7 +45,6 @@ export default function ReviewPage() {
   const storedTitle = storedNav?.title;
 
   // Check if resuming a session
-  const isResuming = location.state?.resume === true;
   const resumedSession: SavedSession | undefined = location.state?.savedSession;
 
   const sessionSize =
@@ -81,7 +80,9 @@ export default function ReviewPage() {
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [correctCount, setCorrectCount] = useState(resumedSession?.correctCount || 0);
-  const [answeredQuestions, setAnsweredQuestions] = useState<string[]>(resumedSession?.answeredQuestions || []);
+  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(
+    () => new Set(resumedSession?.answeredQuestions || [])
+  );
   const [answerResult, setAnswerResult] = useState<{
     isCorrect: boolean;
     correctIndex: number;
@@ -103,32 +104,48 @@ export default function ReviewPage() {
         currentIndex,
         correctCount,
         questionIds: questions.map(q => q.id),
-        answeredQuestions,
+        answeredQuestions: Array.from(answeredQuestions),
       });
     }
   }, [currentIndex, correctCount, answeredQuestions, questions, isComplete]);
 
-  // If resuming, check if current question was already answered
+  // Ensure current position always lands on a valid unanswered question.
   useEffect(() => {
-    if (isResuming && resumedSession && questions.length > 0) {
+    if (questions.length > 0) {
       const currentQ = questions[currentIndex];
-      if (currentQ && answeredQuestions.includes(currentQ.id)) {
-        // This question was answered, move to next unanswered
+      if (currentQ && answeredQuestions.has(currentQ.id)) {
         const nextUnanswered = questions.findIndex(
-          (q, i) => i >= currentIndex && !answeredQuestions.includes(q.id)
+          (q, i) => i >= currentIndex && !answeredQuestions.has(q.id)
         );
+
         if (nextUnanswered !== -1) {
           setCurrentIndex(nextUnanswered);
+          setHasAnswered(false);
+          setAnswerResult(undefined);
+          return;
+        }
+
+        const firstUnanswered = questions.findIndex((q) => !answeredQuestions.has(q.id));
+        if (firstUnanswered !== -1) {
+          setCurrentIndex(firstUnanswered);
+          setHasAnswered(false);
+          setAnswerResult(undefined);
         } else {
-          // All questions answered
           setIsComplete(true);
         }
+      } else if (currentQ) {
+        setHasAnswered(false);
+        setAnswerResult(undefined);
       }
     }
-  }, [isResuming, questions]);
+  }, [questions, currentIndex, answeredQuestions]);
 
   const handleAnswer = async (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => {
     if (currentQuestion) {
+      if (answeredQuestions.has(currentQuestion.id)) {
+        return;
+      }
+
       try {
         await recordAnswer(currentQuestion.id, selectedIndex, correct);
 
@@ -143,9 +160,7 @@ export default function ReviewPage() {
           setCorrectCount((prev) => prev + 1);
         }
 
-        setAnsweredQuestions((prev) =>
-          prev.includes(currentQuestion.id) ? prev : [...prev, currentQuestion.id]
-        );
+        setAnsweredQuestions((prev) => new Set(prev).add(currentQuestion.id));
       } catch (recordError) {
         const message =
           recordError instanceof Error
@@ -164,7 +179,17 @@ export default function ReviewPage() {
       setIsComplete(true);
       clearSession(); // Clear saved session on completion
     } else {
-      setCurrentIndex((prev) => prev + 1);
+      const nextUnanswered = questions.findIndex(
+        (q, i) => i > currentIndex && !answeredQuestions.has(q.id)
+      );
+
+      if (nextUnanswered !== -1) {
+        setCurrentIndex(nextUnanswered);
+      } else {
+        setIsComplete(true);
+        clearSession();
+      }
+
       setHasAnswered(false);
       setAnswerResult(undefined);
     }
