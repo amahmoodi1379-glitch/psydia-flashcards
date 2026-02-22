@@ -86,25 +86,24 @@ This endpoint is intended for server-to-server cron only.
 
 ### Required Edge Function settings
 
-- In `supabase/config.toml`, disable platform JWT verification for this function and rely on a dedicated cron secret header:
-  - `[functions.cleanup-old-data].verify_jwt = false`
-- Configure a shared secret in function env:
-  - `CRON_SECRET=<strong-random-secret>`
+- In `supabase/config.toml`, keep platform JWT verification enabled:
+  - `[functions.cleanup-old-data].verify_jwt = true`
+- Keep `SUPABASE_SERVICE_ROLE_KEY` configured in Edge Function secrets.
 
 ### Authentication method
 
-`cleanup-old-data` accepts only:
+`cleanup-old-data` accepts only one auth path:
 
-1. **Cron secret** via `x-cron-secret: <CRON_SECRET>`
+1. **Service caller JWT** via `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`
 
-Any missing/invalid credential receives a minimal `401 Unauthorized` response.
+With `verify_jwt = true`, Supabase rejects invalid JWTs before function code runs, and the function adds an explicit service-role token match. Any missing/invalid credential receives `401 Unauthorized`.
 
 ### Deployment checklist
 
 1. Set secrets:
 
 ```bash
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... CRON_SECRET=... ATTEMPT_LOG_RETENTION_DAYS=180
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... ATTEMPT_LOG_RETENTION_DAYS=180
 ```
 
 2. Deploy function:
@@ -113,15 +112,15 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... CRON_SECRET=... ATTEMPT_LOG_R
 supabase functions deploy cleanup-old-data
 ```
 
-3. Configure your scheduler to call `POST /functions/v1/cleanup-old-data` with the cron secret header only:
+3. Configure your scheduler (or other trusted backend) to call `POST /functions/v1/cleanup-old-data` with service-role Authorization:
 
 ```bash
 curl -X POST "https://<project-ref>.supabase.co/functions/v1/cleanup-old-data" \
   -H "Content-Type: application/json" \
-  -H "x-cron-secret: <CRON_SECRET>"
+  -H "Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>"
 ```
 
 Security notes for scheduler setup:
-- Store `CRON_SECRET` only in the scheduler's encrypted secret store (never inline in job definitions).
-- Rotate `CRON_SECRET` periodically and immediately after any incident.
-- Do not send `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` to this endpoint.
+- Store `SUPABASE_SERVICE_ROLE_KEY` only in an encrypted secret manager (never inline in jobs).
+- Restrict callers to cron infrastructure / trusted backend only.
+- Rotate the service role key immediately if exposure is suspected.
