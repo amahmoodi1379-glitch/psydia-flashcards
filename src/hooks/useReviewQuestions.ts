@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 
 export interface Question {
   id: string;
@@ -11,7 +10,7 @@ export interface Question {
 
 export interface ReviewFilter {
   type: "daily" | "subject" | "topic" | "subtopic" | "bookmarks" | "frequently_wrong";
-  id?: string; // subject_id, topic_id, or subtopic_id
+  id?: string;
 }
 
 export interface ReviewQuestionsResult {
@@ -22,16 +21,41 @@ export interface ReviewQuestionsResult {
   newCount: number;
 }
 
+type ReviewQuestionRow = {
+  id: string;
+  stem_text: string;
+  choices: unknown;
+  subtopic_id: string;
+  due_count: number;
+  new_count: number;
+};
+
+async function fetchReviewQuestionsRpc(limit: number, filter?: ReviewFilter): Promise<ReviewQuestionRow[]> {
+  const { data, error } = await supabase.rpc("get_review_questions", {
+    _limit: limit,
+    _filter_type: filter?.type ?? "daily",
+    _filter_id: filter?.id ?? null,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as ReviewQuestionRow[];
+}
+
 export function useReviewQuestions(
   limit: number = 10,
   filter: ReviewFilter = { type: "daily" }
 ): ReviewQuestionsResult {
-  const { user } = useAuth();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dueCount, setDueCount] = useState(0);
   const [newCount, setNewCount] = useState(0);
+
+  const filterType = filter.type;
+  const filterId = filter.id;
 
   useEffect(() => {
     async function fetchQuestions() {
@@ -39,228 +63,28 @@ export function useReviewQuestions(
       setError(null);
 
       try {
-        // Handle bookmarks filter
-        if (filter.type === "bookmarks" && user) {
-          const { data: bookmarks, error: bookmarksError } = await supabase
-            .from("bookmarks")
-            .select("question_id")
-            .eq("user_id", user.id);
-
-          if (bookmarksError) throw bookmarksError;
-
-          if (!bookmarks || bookmarks.length === 0) {
-            setQuestions([]);
-            setDueCount(0);
-            setNewCount(0);
-            setIsLoading(false);
-            return;
-          }
-
-          const bookmarkedIds = bookmarks.map((b) => b.question_id);
-
-          const { data: bookmarkedQuestions, error: qError } = await supabase
-            .from("questions_safe")
-            .select("id, stem_text, choices, subtopic_id")
-            .in("id", bookmarkedIds);
-
-          if (qError) throw qError;
-
-          const limited = (bookmarkedQuestions || []).slice(0, limit);
-          const parsed: Question[] = limited.map((q) => ({
-            ...q,
-            choices: Array.isArray(q.choices)
-              ? q.choices
-              : JSON.parse(q.choices as string),
-          }));
-
-          setQuestions(parsed);
-          setDueCount(parsed.length);
-          setNewCount(0);
-          setIsLoading(false);
-          return;
-        }
-
-        // Handle frequently wrong questions filter
-        if (filter.type === "frequently_wrong" && user) {
-          const { data: wrongQuestions, error: wrongError } = await supabase.rpc(
-            "get_frequently_wrong_questions"
-          );
-
-          if (wrongError) throw wrongError;
-
-          if (!wrongQuestions || wrongQuestions.length === 0) {
-            setQuestions([]);
-            setDueCount(0);
-            setNewCount(0);
-            setIsLoading(false);
-            return;
-          }
-
-          const wrongIds = wrongQuestions.map((w: { question_id: string }) => w.question_id);
-
-          const { data: wrongQuestionsData, error: qError } = await supabase
-            .from("questions_safe")
-            .select("id, stem_text, choices, subtopic_id")
-            .in("id", wrongIds);
-
-          if (qError) throw qError;
-
-          const limited = (wrongQuestionsData || []).slice(0, limit);
-          const parsed: Question[] = limited.map((q) => ({
-            ...q,
-            choices: Array.isArray(q.choices)
-              ? q.choices
-              : JSON.parse(q.choices as string),
-          }));
-
-          setQuestions(parsed);
-          setDueCount(parsed.length);
-          setNewCount(0);
-          setIsLoading(false);
-          return;
-        }
-
-
-        // Validate filters
-        if ((filter.type === "subject" || filter.type === "topic" || filter.type === "subtopic") && !filter.id) {
+        if ((filterType === "subject" || filterType === "topic" || filterType === "subtopic") && !filterId) {
           setQuestions([]);
           setDueCount(0);
           setNewCount(0);
           setError("فیلتر انتخاب‌شده نامعتبر است");
-          setIsLoading(false);
           return;
         }
 
-        // Get subtopic_ids based on filter
-        let subtopicIds: string[] = [];
+        const rows = await fetchReviewQuestionsRpc(limit, { type: filterType, id: filterId });
 
-        if (filter.type === "subtopic" && filter.id) {
-          subtopicIds = [filter.id];
-        } else if (filter.type === "topic" && filter.id) {
-          const { data: subtopics } = await supabase
-            .from("subtopics")
-            .select("id")
-            .eq("topic_id", filter.id);
-          subtopicIds = subtopics?.map((s) => s.id) || [];
-        } else if (filter.type === "subject" && filter.id) {
-          const { data: topics } = await supabase
-            .from("topics")
-            .select("id")
-            .eq("subject_id", filter.id);
-          const topicIds = topics?.map((t) => t.id) || [];
+        const counts = rows[0];
+        setDueCount(counts?.due_count ?? 0);
+        setNewCount(counts?.new_count ?? 0);
 
-          if (topicIds.length > 0) {
-            const { data: subtopics } = await supabase
-              .from("subtopics")
-              .select("id")
-              .in("topic_id", topicIds);
-            subtopicIds = subtopics?.map((s) => s.id) || [];
-          }
-        }
+        const parsed: Question[] = rows.map((q) => ({
+          id: q.id,
+          stem_text: q.stem_text,
+          subtopic_id: q.subtopic_id,
+          choices: Array.isArray(q.choices) ? (q.choices as string[]) : JSON.parse(q.choices as string),
+        }));
 
-        // For subject/topic/subtopic filters, if no subtopics found, return empty
-        if (filter.type !== "daily" && subtopicIds.length === 0) {
-          setQuestions([]);
-          setDueCount(0);
-          setNewCount(0);
-          setIsLoading(false);
-          return;
-        }
-
-        // Use questions_safe view - no correct_index exposed!
-        let questionsQuery = supabase
-          .from("questions_safe")
-          .select("id, stem_text, choices, subtopic_id")
-          .eq("is_active", true);
-
-        // Apply subtopic filter if not daily review
-        if (filter.type !== "daily" && subtopicIds.length > 0) {
-          questionsQuery = questionsQuery.in("subtopic_id", subtopicIds);
-        }
-
-        const { data: allQuestions, error: questionsError } = await questionsQuery;
-
-        if (questionsError) throw questionsError;
-
-        if (!allQuestions || allQuestions.length === 0) {
-          setQuestions([]);
-          setDueCount(0);
-          setNewCount(0);
-          setIsLoading(false);
-          return;
-        }
-
-        const questionIds = allQuestions.map((q) => q.id);
-
-        // If user is logged in, filter by SM2
-        if (user) {
-          const { data: userStates } = await supabase
-            .from("user_question_state")
-            .select("question_id, next_review_at")
-            .eq("user_id", user.id)
-            .in("question_id", questionIds);
-
-          const stateMap = new Map(
-            userStates?.map((s) => [s.question_id, s.next_review_at]) || []
-          );
-
-          const now = new Date();
-
-          // Separate due, new, and scheduled (not-due) questions
-          const dueQuestions: typeof allQuestions = [];
-          const newQuestions: typeof allQuestions = [];
-          const scheduled: Array<{ q: (typeof allQuestions)[number]; nextReviewAt: string }> = [];
-
-          allQuestions.forEach((q) => {
-            const nextReview = stateMap.get(q.id);
-            if (!nextReview) {
-              newQuestions.push(q);
-            } else if (new Date(nextReview) <= now) {
-              dueQuestions.push(q);
-            } else {
-              scheduled.push({ q, nextReviewAt: nextReview });
-            }
-          });
-
-          setDueCount(dueQuestions.length);
-          setNewCount(newQuestions.length);
-
-          // Prioritize due questions, then add new ones
-          let orderedQuestions = [...dueQuestions, ...newQuestions];
-
-          // If nothing is due/new (common after user has answered everything recently),
-          // fall back to the closest upcoming reviews so the user can still practice.
-          if (orderedQuestions.length === 0 && scheduled.length > 0) {
-            scheduled.sort(
-              (a, b) => new Date(a.nextReviewAt).getTime() - new Date(b.nextReviewAt).getTime()
-            );
-            orderedQuestions = scheduled.map((s) => s.q);
-          }
-
-          const finalQuestions = orderedQuestions.slice(0, limit);
-
-          const parsed: Question[] = finalQuestions.map((q) => ({
-            ...q,
-            choices: Array.isArray(q.choices) ? q.choices : JSON.parse(q.choices as string),
-          }));
-
-          setQuestions(parsed);
-        } else {
-          // No user - just return random questions
-          const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
-          const limited = shuffled.slice(0, limit);
-
-          const parsed: Question[] = limited.map((q) => ({
-            ...q,
-            choices: Array.isArray(q.choices)
-              ? q.choices
-              : JSON.parse(q.choices as string),
-          }));
-
-          setQuestions(parsed);
-          setDueCount(0);
-          setNewCount(allQuestions.length);
-        }
+        setQuestions(parsed);
       } catch (err) {
         console.error("Error fetching review questions:", err);
         setError("خطا در بارگذاری سوالات");
@@ -270,7 +94,7 @@ export function useReviewQuestions(
     }
 
     fetchQuestions();
-  }, [limit, filter.type, filter.id, user]);
+  }, [limit, filterType, filterId]);
 
   return { questions, isLoading, error, dueCount, newCount };
 }
@@ -281,99 +105,34 @@ export function useDueCount(filter?: ReviewFilter): {
   total: number;
   isLoading: boolean;
 } {
-  const { user } = useAuth();
   const [dueCount, setDueCount] = useState(0);
   const [newCount, setNewCount] = useState(0);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  const filterType = filter?.type;
+  const filterId = filter?.id;
+
   useEffect(() => {
     async function fetchCounts() {
       setIsLoading(true);
-      
-      try {
-        // Get subtopic_ids based on filter
-        let subtopicIds: string[] = [];
-        
-        if (filter?.type === "subtopic" && filter.id) {
-          subtopicIds = [filter.id];
-        } else if (filter?.type === "topic" && filter.id) {
-          const { data: subtopics } = await supabase
-            .from("subtopics")
-            .select("id")
-            .eq("topic_id", filter.id);
-          subtopicIds = subtopics?.map((s) => s.id) || [];
-        } else if (filter?.type === "subject" && filter.id) {
-          const { data: topics } = await supabase
-            .from("topics")
-            .select("id")
-            .eq("subject_id", filter.id);
-          const topicIds = topics?.map((t) => t.id) || [];
-          
-          if (topicIds.length > 0) {
-            const { data: subtopics } = await supabase
-              .from("subtopics")
-              .select("id")
-              .in("topic_id", topicIds);
-            subtopicIds = subtopics?.map((s) => s.id) || [];
-          }
-        }
 
-        // For subject/topic/subtopic filters, if no subtopics found, return empty
-        if (filter && filter.type !== "daily" && subtopicIds.length === 0) {
+      try {
+        if ((filterType === "subject" || filterType === "topic" || filterType === "subtopic") && !filterId) {
           setDueCount(0);
           setNewCount(0);
           setTotal(0);
-          setIsLoading(false);
           return;
         }
 
-        // Use questions_safe view
-        let query = supabase
-          .from("questions_safe")
-          .select("id")
-          .eq("is_active", true);
-
-        if (subtopicIds.length > 0) {
-          query = query.in("subtopic_id", subtopicIds);
-        }
-
-        const { data: allQuestions } = await query;
-        const questionIds = allQuestions?.map((q) => q.id).filter((id): id is string => id !== null) || [];
-        setTotal(questionIds.length);
-
-        if (!user || questionIds.length === 0) {
-          setDueCount(0);
-          setNewCount(questionIds.length);
-          setIsLoading(false);
-          return;
-        }
-
-        const { data: userStates } = await supabase
-          .from("user_question_state")
-          .select("question_id, next_review_at")
-          .eq("user_id", user.id)
-          .in("question_id", questionIds);
-
-        const stateMap = new Map(
-          userStates?.map((s) => [s.question_id, s.next_review_at]) || []
-        );
-
-        const now = new Date();
-        let due = 0;
-        let newQ = 0;
-
-        questionIds.forEach((id) => {
-          const nextReview = stateMap.get(id);
-          if (!nextReview) {
-            newQ++;
-          } else if (new Date(nextReview) <= now) {
-            due++;
-          }
-        });
+        const rows = await fetchReviewQuestionsRpc(1, filterType ? { type: filterType, id: filterId } : undefined);
+        const counts = rows[0];
+        const due = counts?.due_count ?? 0;
+        const fresh = counts?.new_count ?? 0;
 
         setDueCount(due);
-        setNewCount(newQ);
+        setNewCount(fresh);
+        setTotal(due + fresh);
       } catch (err) {
         console.error("Error fetching due count:", err);
       } finally {
@@ -382,7 +141,7 @@ export function useDueCount(filter?: ReviewFilter): {
     }
 
     fetchCounts();
-  }, [filter?.type, filter?.id, user]);
+  }, [filterType, filterId]);
 
   return { dueCount, newCount, total, isLoading };
 }
