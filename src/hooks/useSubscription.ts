@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +13,8 @@ interface SubscriptionData {
 
 export function useSubscription() {
   const { user } = useAuth();
+  const usageCheckResultsRef = useRef<Map<string, boolean>>(new Map());
+  const inFlightUsageChecksRef = useRef<Map<string, Promise<boolean>>>(new Map());
 
   const { data: subscription, isLoading, refetch } = useQuery({
     queryKey: ["subscription", user?.id],
@@ -56,21 +59,55 @@ export function useSubscription() {
     staleTime: 60 * 1000, // 1 minute cache
   });
 
-  const canUseQuestion = async (): Promise<boolean> => {
+  const canUseQuestion = async (requestId?: string): Promise<boolean> => {
     if (!user) return false;
-    
-    const { data, error } = await supabase.rpc("increment_daily_usage", {
-      _user_id: user.id,
-    });
 
-    if (error) {
-      console.error("Error incrementing usage:", error);
-      return false;
+    if (requestId) {
+      const existingResult = usageCheckResultsRef.current.get(requestId);
+      if (existingResult !== undefined) {
+        return existingResult;
+      }
+
+      const inFlight = inFlightUsageChecksRef.current.get(requestId);
+      if (inFlight) {
+        return inFlight;
+      }
     }
 
-    // Refetch subscription to update UI
-    refetch();
-    return data === true;
+    const checkPromise = (async () => {
+      const { data, error } = await supabase.rpc("increment_daily_usage", {
+        _user_id: user.id,
+      });
+
+      if (error) {
+        console.error("Error incrementing usage:", error);
+        if (requestId) {
+          usageCheckResultsRef.current.set(requestId, false);
+        }
+        return false;
+      }
+
+      const canProceed = data === true;
+      if (requestId) {
+        usageCheckResultsRef.current.set(requestId, canProceed);
+      }
+
+      // Refetch subscription to update UI counter after each usage check.
+      await refetch();
+      return canProceed;
+    })();
+
+    if (requestId) {
+      inFlightUsageChecksRef.current.set(requestId, checkPromise);
+    }
+
+    try {
+      return await checkPromise;
+    } finally {
+      if (requestId) {
+        inFlightUsageChecksRef.current.delete(requestId);
+      }
+    }
   };
 
   const hasFeature = (feature: "bookmarks" | "mastery_map" | "wrong_review" | "extended_activity"): boolean => {

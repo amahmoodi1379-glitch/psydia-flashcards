@@ -5,13 +5,13 @@ const reviewPageSource = readFileSync('src/pages/ReviewPage.tsx', 'utf8');
 
 assert.match(
   reviewPageSource,
-  /await recordAnswer\(currentQuestion\.id, selectedIndex, correct\);\s*\n\s*setHasAnswered\(true\);/s,
+  /await recordAnswer\(currentQuestion\.id, selectedIndex, correct(?:, \{[\s\S]*?\})?\);\s*\n\s*setHasAnswered\(true\);/s,
   'ReviewPage must mark question as answered only after recordAnswer succeeds',
 );
 
 assert.match(
   reviewPageSource,
-  /await recordAnswer\(currentQuestion\.id, selectedIndex, correct\);[\s\S]*if \(correct\) \{\s*setCorrectCount\(\(prev\) => prev \+ 1\);\s*\}/s,
+  /await recordAnswer\(currentQuestion\.id, selectedIndex, correct(?:, \{[\s\S]*?\})?\);[\s\S]*if \(correct\) \{\s*setCorrectCount\(\(prev\) => prev \+ 1\);\s*\}/s,
   'correctCount must increase only after successful persistence',
 );
 
