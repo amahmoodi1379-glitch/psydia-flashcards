@@ -111,6 +111,9 @@ SELECT cron.schedule(
   $$
 );
 
+-- Drop old signature (2 columns) so we can recreate with 3 columns
+DROP FUNCTION IF EXISTS public.get_admin_users_page(integer, integer, text);
+
 CREATE OR REPLACE FUNCTION public.get_admin_users_page(
   _page integer DEFAULT 1,
   _page_size integer DEFAULT 20,

@@ -11,43 +11,41 @@ RETURNS TABLE(
   due_count bigint,
   new_count bigint
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  WITH params AS (
-    SELECT
-      GREATEST(COALESCE(_limit, 10), 0) AS v_limit,
-      COALESCE(_filter_type, 'daily') AS v_filter_type,
-      _filter_id AS v_filter_id,
-      auth.uid() AS v_user_id
-  ),
-  base_questions AS (
+DECLARE
+  v_limit integer := GREATEST(COALESCE(_limit, 10), 0);
+  v_filter_type text := COALESCE(_filter_type, 'daily');
+  v_filter_id uuid := _filter_id;
+  v_user_id uuid := auth.uid();
+BEGIN
+  RETURN QUERY
+  WITH base_questions AS (
     SELECT q.id, q.stem_text, q.choices, q.subtopic_id
     FROM questions q
-    CROSS JOIN params p
     LEFT JOIN subtopics st ON st.id = q.subtopic_id
     LEFT JOIN topics t ON t.id = st.topic_id
-    LEFT JOIN bookmarks b ON b.question_id = q.id AND b.user_id = p.v_user_id
+    LEFT JOIN bookmarks b ON b.question_id = q.id AND b.user_id = v_user_id
     LEFT JOIN (
       SELECT al.question_id
       FROM attempt_logs al
-      CROSS JOIN params p2
-      WHERE al.user_id = p2.v_user_id
-        AND p2.v_user_id IS NOT NULL
+      WHERE al.user_id = v_user_id
+        AND v_user_id IS NOT NULL
         AND al.is_correct = false
       GROUP BY al.question_id
       HAVING COUNT(*) >= 2
     ) fw ON fw.question_id = q.id
     WHERE q.is_active = true
       AND (
-        p.v_filter_type = 'daily'
-        OR (p.v_filter_type = 'subtopic' AND q.subtopic_id = p.v_filter_id)
-        OR (p.v_filter_type = 'topic' AND st.topic_id = p.v_filter_id)
-        OR (p.v_filter_type = 'subject' AND t.subject_id = p.v_filter_id)
-        OR (p.v_filter_type = 'bookmarks' AND p.v_user_id IS NOT NULL AND b.question_id IS NOT NULL)
-        OR (p.v_filter_type = 'frequently_wrong' AND p.v_user_id IS NOT NULL AND fw.question_id IS NOT NULL)
+        v_filter_type = 'daily'
+        OR (v_filter_type = 'subtopic' AND q.subtopic_id = v_filter_id)
+        OR (v_filter_type = 'topic' AND st.topic_id = v_filter_id)
+        OR (v_filter_type = 'subject' AND t.subject_id = v_filter_id)
+        OR (v_filter_type = 'bookmarks' AND v_user_id IS NOT NULL AND b.question_id IS NOT NULL)
+        OR (v_filter_type = 'frequently_wrong' AND v_user_id IS NOT NULL AND fw.question_id IS NOT NULL)
       )
   ),
   classified AS (
@@ -55,69 +53,69 @@ AS $$
       bq.*,
       uqs.next_review_at,
       CASE
-        WHEN p.v_user_id IS NULL THEN 'new'
+        WHEN v_user_id IS NULL THEN 'new'
         WHEN uqs.question_id IS NULL THEN 'new'
         WHEN uqs.next_review_at <= now() THEN 'due'
         ELSE 'scheduled'
       END AS review_type
     FROM base_questions bq
-    CROSS JOIN params p
     LEFT JOIN user_question_state uqs
       ON uqs.question_id = bq.id
-     AND uqs.user_id = p.v_user_id
+     AND uqs.user_id = v_user_id
   ),
   counts AS (
     SELECT
-      COUNT(*) FILTER (WHERE review_type = 'due')::bigint AS due_count,
-      COUNT(*) FILTER (WHERE review_type = 'new')::bigint AS new_count
+      COUNT(*) FILTER (WHERE review_type = 'due')::bigint AS cnt_due,
+      COUNT(*) FILTER (WHERE review_type = 'new')::bigint AS cnt_new
     FROM classified
   ),
   due_pick AS (
-    SELECT c.*, 1 AS priority, ROW_NUMBER() OVER (ORDER BY random()) AS ord
+    SELECT c.id, c.stem_text, c.choices, c.subtopic_id, c.next_review_at, c.review_type,
+           1 AS priority, ROW_NUMBER() OVER (ORDER BY random()) AS ord
     FROM classified c
-    CROSS JOIN params p
     WHERE c.review_type = 'due'
     ORDER BY random()
-    LIMIT p.v_limit
+    LIMIT v_limit
   ),
   remaining_after_due AS (
-    SELECT GREATEST((SELECT v_limit FROM params) - COUNT(*), 0) AS rem
+    SELECT GREATEST(v_limit - COUNT(*)::integer, 0) AS rem
     FROM due_pick
   ),
   new_pick AS (
-    SELECT c.*, 2 AS priority, ROW_NUMBER() OVER (ORDER BY random()) AS ord
+    SELECT c.id, c.stem_text, c.choices, c.subtopic_id, c.next_review_at, c.review_type,
+           2 AS priority, ROW_NUMBER() OVER (ORDER BY random()) AS ord
     FROM classified c
     WHERE c.review_type = 'new'
     ORDER BY random()
     LIMIT (SELECT rem FROM remaining_after_due)
   ),
   primary_pick AS (
-    SELECT id, stem_text, choices, subtopic_id, priority, ord
-    FROM due_pick
+    SELECT dp.id, dp.stem_text, dp.choices, dp.subtopic_id, dp.priority, dp.ord
+    FROM due_pick dp
     UNION ALL
-    SELECT id, stem_text, choices, subtopic_id, priority, ord
-    FROM new_pick
+    SELECT np.id, np.stem_text, np.choices, np.subtopic_id, np.priority, np.ord
+    FROM new_pick np
   ),
   fallback_pick AS (
     SELECT c.id, c.stem_text, c.choices, c.subtopic_id, 3 AS priority,
       ROW_NUMBER() OVER (ORDER BY c.next_review_at ASC, c.id) AS ord
     FROM classified c
-    CROSS JOIN params p
     WHERE c.review_type = 'scheduled'
       AND (SELECT COUNT(*) FROM primary_pick) = 0
     ORDER BY c.next_review_at ASC, c.id
-    LIMIT p.v_limit
+    LIMIT v_limit
   ),
   final_pick AS (
     SELECT * FROM primary_pick
     UNION ALL
     SELECT * FROM fallback_pick
   )
-  SELECT fp.id, fp.stem_text, fp.choices, fp.subtopic_id, c.due_count, c.new_count
+  SELECT fp.id, fp.stem_text, fp.choices, fp.subtopic_id, c.cnt_due, c.cnt_new
   FROM final_pick fp
   CROSS JOIN counts c
   ORDER BY fp.priority, fp.ord
-  LIMIT (SELECT v_limit FROM params);
+  LIMIT v_limit;
+END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.get_review_questions(integer, text, uuid) FROM PUBLIC;
