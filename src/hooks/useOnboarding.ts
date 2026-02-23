@@ -54,6 +54,12 @@ export function useOnboarding() {
     }
   }, []);
 
+  const completeOnboarding = useCallback(() => {
+    localStorage.setItem(ONBOARDING_KEY, "true");
+    setIsOnboardingActive(false);
+    setHasCompletedOnboarding(true);
+  }, []);
+
   const startOnboarding = useCallback(() => {
     setCurrentStepIndex(0);
     setIsOnboardingActive(true);
@@ -65,7 +71,7 @@ export function useOnboarding() {
     } else {
       completeOnboarding();
     }
-  }, [currentStepIndex]);
+  }, [currentStepIndex, completeOnboarding]);
 
   const prevStep = useCallback(() => {
     if (currentStepIndex > 0) {
@@ -75,13 +81,7 @@ export function useOnboarding() {
 
   const skipOnboarding = useCallback(() => {
     completeOnboarding();
-  }, []);
-
-  const completeOnboarding = useCallback(() => {
-    localStorage.setItem(ONBOARDING_KEY, "true");
-    setIsOnboardingActive(false);
-    setHasCompletedOnboarding(true);
-  }, []);
+  }, [completeOnboarding]);
 
   const resetOnboarding = useCallback(() => {
     localStorage.removeItem(ONBOARDING_KEY);

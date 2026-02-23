@@ -39,7 +39,7 @@ const LoginPage = () => {
       }
 
       toast.success('با موفقیت وارد شدید');
-      navigate(redirectTo, { replace: true });
+      // Navigation is handled by the useEffect watching isAuthenticated
     } finally {
       setIsSubmitting(false);
     }

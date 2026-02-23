@@ -22,6 +22,23 @@ interface SubjectData {
   topics: TopicData[];
 }
 
+interface GuestSubtopic {
+  id: string;
+  title: string;
+}
+
+interface GuestTopic {
+  id: string;
+  title: string;
+  subtopics: GuestSubtopic[];
+}
+
+interface GuestSubject {
+  id: string;
+  title: string;
+  topics: GuestTopic[];
+}
+
 export function useHierarchicalMastery() {
   const { user } = useAuth();
 
@@ -46,15 +63,15 @@ export function useHierarchicalMastery() {
           `)
           .order("display_order");
 
-        return (subjects || []).map((s: any) => ({
+        return ((subjects || []) as GuestSubject[]).map((s) => ({
           id: s.id,
           name: s.title,
           mastery: 0,
-          topics: (s.topics || []).map((t: any) => ({
+          topics: (s.topics || []).map((t) => ({
             id: t.id,
             name: t.title,
             mastery: 0,
-            subtopics: (t.subtopics || []).map((st: any) => ({
+            subtopics: (t.subtopics || []).map((st) => ({
               id: st.id,
               name: st.title,
               mastery: 0,

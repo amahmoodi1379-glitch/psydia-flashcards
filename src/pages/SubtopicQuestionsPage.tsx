@@ -42,6 +42,7 @@ export default function SubtopicQuestionsPage() {
     setPage,
     onlyUnanswered,
     setOnlyUnanswered,
+  refetch,
   } = useSubtopicQuestions(subtopicId);
 
   const { recordAnswer } = useRecordAnswer();
@@ -130,6 +131,11 @@ export default function SubtopicQuestionsPage() {
       // record_answer always creates/updates user_question_state,
       // so first post-answer UI state must reflect that the question is already in Leitner.
       setLeitnerMap((prev) => new Map(prev).set(questionId, true));
+
+      // When viewing only unanswered questions, refetch so answered ones disappear
+      if (onlyUnanswered) {
+        refetch();
+      }
     } catch (recordError) {
       const message =
         recordError instanceof Error

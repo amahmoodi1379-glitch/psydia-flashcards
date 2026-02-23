@@ -94,6 +94,7 @@ export default function QuestionsManager() {
 
   useEffect(() => {
     fetchQuestions(currentPage, searchQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
   const handleSearch = () => {

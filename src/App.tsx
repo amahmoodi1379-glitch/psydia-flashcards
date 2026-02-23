@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AdminGuard } from "@/components/admin/AdminGuard";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import ExamPage from "./pages/ExamPage";
@@ -41,10 +42,10 @@ const App = () => (
               <Routes>
                 {/* Main app routes */}
                 <Route path="/" element={<ExamPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/review" element={<ReviewPage />} />
+                <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+                <Route path="/review" element={<RequireAuth><ReviewPage /></RequireAuth>} />
                 <Route path="/subtopic" element={<SubtopicQuestionsPage />} />
-                <Route path="/subscription" element={<SubscriptionPage />} />
+                <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 

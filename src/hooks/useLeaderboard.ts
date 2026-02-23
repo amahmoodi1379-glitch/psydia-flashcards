@@ -13,6 +13,17 @@ export type LeaderboardEntry = {
   accuracy: number;
 };
 
+type RawLeaderboardRow = {
+  rank: number | string;
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  correct_count: number;
+  total_count: number;
+  score: number;
+  accuracy: number | string;
+};
+
 export type UserRank = {
   rank: number;
   correct_count: number;
@@ -36,7 +47,7 @@ export function useLeaderboard(period: "weekly" | "monthly") {
         throw error;
       }
 
-      return (data || []).map((entry: any) => ({
+      return (data || []).map((entry: RawLeaderboardRow) => ({
         rank: Number(entry.rank),
         user_id: entry.user_id,
         display_name: entry.display_name,

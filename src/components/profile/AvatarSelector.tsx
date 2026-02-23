@@ -77,4 +77,5 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, children }: Avat
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { getAvatarEmoji } from "@/lib/avatars";
