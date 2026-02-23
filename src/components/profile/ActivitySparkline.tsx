@@ -1,10 +1,6 @@
 import { useWeeklyActivity } from "@/hooks/useWeeklyActivity";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
-};
+import { toPersianNumber } from "@/lib/utils";
 
 export function ActivitySparkline() {
   const { activityData, totalWeek, isLoading } = useWeeklyActivity();

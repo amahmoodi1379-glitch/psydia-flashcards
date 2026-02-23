@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, RotateCcw, Clock, BookOpen, Star, Lock, AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toPersianNumber } from "@/lib/utils";
 import { useDueCount } from "@/hooks/useReviewQuestions";
 import { SubjectSelector } from "@/components/exam/SubjectSelector";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,11 +16,6 @@ import {
   DailyReviewSkeleton, 
   ReviewCardSkeleton, 
 } from "@/components/skeleton/ExamPageSkeleton";
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
-};
 
 const sessionSizes = [10, 20, 30];
 

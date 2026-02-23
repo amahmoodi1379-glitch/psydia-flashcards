@@ -9,12 +9,7 @@ import {
 } from "@/components/ui/accordion";
 import { useSubjectHierarchy, Subject, Topic, Subtopic } from "@/hooks/useSubjectHierarchy";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
-};
+import { cn, toPersianNumber } from "@/lib/utils";
 
 interface SubjectSelectorProps {
   sessionSize: number;

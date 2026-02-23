@@ -5,12 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Crown, Zap, Sparkles, Brain, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
-};
+import { cn, toPersianNumber } from "@/lib/utils";
 
 const plans = [
   {

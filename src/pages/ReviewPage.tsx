@@ -4,19 +4,15 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Trophy, Star, Flag, Lock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toPersianNumber } from "@/lib/utils";
 import { useReviewQuestions, ReviewFilter } from "@/hooks/useReviewQuestions";
 import { useRecordAnswer } from "@/hooks/useRecordAnswer";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useSessionPersistence, SavedSession } from "@/hooks/useSessionPersistence";
 import { ReviewPageSkeleton } from "@/components/skeleton/ReviewPageSkeleton";
+import { useReportQuestion } from "@/hooks/useReportQuestion";
 import { toast } from "sonner";
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
-};
 
 export default function ReviewPage() {
   const navigate = useNavigate();
@@ -74,6 +70,7 @@ export default function ReviewPage() {
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
   const { hasFeature, refetch: refetchSubscription } = useSubscription();
   const { saveSession, clearSession } = useSessionPersistence();
+  const { reportQuestion, isReporting } = useReportQuestion();
   
   // Initialize state from resumed session or defaults
   const [currentIndex, setCurrentIndex] = useState(resumedSession?.currentIndex || 0);
@@ -225,9 +222,8 @@ export default function ReviewPage() {
   };
 
   const handleReport = () => {
-    if (!currentQuestion) return;
-    console.log("Report question:", currentQuestion.id);
-    toast.info("گزارش شما ثبت شد");
+    if (!currentQuestion || isReporting) return;
+    reportQuestion(currentQuestion.id);
   };
 
   // Loading state with skeleton

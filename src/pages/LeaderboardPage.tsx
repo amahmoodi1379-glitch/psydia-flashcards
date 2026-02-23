@@ -1,32 +1,11 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Trophy, Medal, Crown, TrendingUp, Target } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, toPersianNumber } from "@/lib/utils";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
-};
-
-// Animal avatars for users
-const ANIMAL_AVATARS = [
-  "🦁", "🐯", "🐻", "🐼", "🐨", "🦊", "🐰", "🐱", "🐶", "🦝",
-  "🦄", "🐮", "🐷", "🐸", "🐵", "🦉", "🦅", "🐧", "🐦", "🦜",
-  "🐢", "🐍", "🦎", "🐠", "🐬", "🐳", "🦈", "🦋", "🐝", "🐞",
-];
-
-function getAvatarEmoji(avatarUrl: string | null): string {
-  if (!avatarUrl) return "🐱";
-  // If it's a number index, use it
-  const index = parseInt(avatarUrl);
-  if (!isNaN(index) && index >= 0 && index < ANIMAL_AVATARS.length) {
-    return ANIMAL_AVATARS[index];
-  }
-  return "🐱";
-}
+import { getAvatarEmoji } from "@/lib/avatars";
 
 function getRankIcon(rank: number) {
   switch (rank) {

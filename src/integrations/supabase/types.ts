@@ -461,6 +461,52 @@ export type Database = {
         }
         Relationships: []
       }
+      question_reports: {
+        Row: {
+          id: string
+          user_id: string
+          question_id: string
+          reason: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          question_id: string
+          reason?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          question_id?: string
+          reason?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_reports_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_reports_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weekly_leaderboard: {
         Row: {
           correct_count: number
@@ -580,6 +626,13 @@ export type Database = {
           rows: Json
           stats_last_refreshed_at: string | null
           total_count: number
+        }[]
+      }
+      get_question_counts_per_subtopic: {
+        Args: Record<string, never>
+        Returns: {
+          subtopic_id: string
+          question_count: number
         }[]
       }
       get_extended_activity: {

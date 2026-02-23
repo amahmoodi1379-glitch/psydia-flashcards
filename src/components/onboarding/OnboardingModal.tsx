@@ -1,12 +1,7 @@
 import { useOnboarding, ONBOARDING_STEPS } from "@/hooks/useOnboarding";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
-};
+import { cn, toPersianNumber } from "@/lib/utils";
 
 export function OnboardingModal() {
   const {

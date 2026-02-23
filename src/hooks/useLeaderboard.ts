@@ -47,8 +47,7 @@ export function useLeaderboard(period: "weekly" | "monthly") {
         accuracy: Number(entry.accuracy),
       }));
     },
-    staleTime: 60_000, // 1 minute
-    refetchInterval: 60_000,
+    staleTime: 5 * 60_000, // 5 minutes
   });
 
   const userRankQuery = useQuery({

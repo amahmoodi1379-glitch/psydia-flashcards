@@ -5,6 +5,7 @@ import {
   BookOpen, 
   HelpCircle, 
   Users,
+  Flag,
   LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,7 @@ const navItems = [
   { path: '/admin/content', icon: BookOpen, label: 'مدیریت محتوا' },
   { path: '/admin/questions', icon: HelpCircle, label: 'سوالات' },
   { path: '/admin/users', icon: Users, label: 'کاربران' },
+  { path: '/admin/reports', icon: Flag, label: 'گزارشات' },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {

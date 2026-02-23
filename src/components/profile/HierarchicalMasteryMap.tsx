@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, toPersianNumber } from "@/lib/utils";
 import { useHierarchicalMastery } from "@/hooks/useHierarchicalMastery";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, BookOpen, Layers, FileText } from "lucide-react";
@@ -27,11 +27,6 @@ const getMasteryLabel = (mastery: number) => {
   if (mastery < 50) return "در حال یادگیری";
   if (mastery < 75) return "متوسط";
   return "مسلط";
-};
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
 };
 
 export function HierarchicalMasteryMap() {

@@ -1,11 +1,6 @@
-import { cn } from "@/lib/utils";
+import { cn, toPersianNumber } from "@/lib/utils";
 import { useSubjectProgress } from "@/hooks/useSubjectProgress";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const toPersianNumber = (num: number): string => {
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num.toString().replace(/\d/g, (d) => persianDigits[parseInt(d)]);
-};
 
 export function SubjectProgress() {
   const { subjects, isLoading } = useSubjectProgress();

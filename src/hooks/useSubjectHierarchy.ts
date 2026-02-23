@@ -33,24 +33,23 @@ export interface SubjectHierarchyResult {
 }
 
 async function fetchHierarchy(): Promise<Subject[]> {
-  // Fetch all data in parallel
-  const [subjectsRes, topicsRes, subtopicsRes, questionsRes] = await Promise.all([
+  // Fetch structure + aggregated question counts in parallel
+  const [subjectsRes, topicsRes, subtopicsRes, countRes] = await Promise.all([
     supabase.from("subjects").select("*").order("display_order"),
     supabase.from("topics").select("*").order("display_order"),
     supabase.from("subtopics").select("*").order("display_order"),
-    supabase.from("questions_safe").select("id, subtopic_id"),
+    supabase.rpc("get_question_counts_per_subtopic"),
   ]);
 
   if (subjectsRes.error) throw subjectsRes.error;
   if (topicsRes.error) throw topicsRes.error;
   if (subtopicsRes.error) throw subtopicsRes.error;
-  if (questionsRes.error) throw questionsRes.error;
+  if (countRes.error) throw countRes.error;
 
-  // Count questions per subtopic
+  // Build count map from RPC result (tiny payload: only subtopic_id + count)
   const questionCountMap = new Map<string, number>();
-  questionsRes.data?.forEach((q) => {
-    const current = questionCountMap.get(q.subtopic_id) || 0;
-    questionCountMap.set(q.subtopic_id, current + 1);
+  (countRes.data || []).forEach((row: { subtopic_id: string; question_count: number }) => {
+    questionCountMap.set(row.subtopic_id, Number(row.question_count));
   });
 
   // Build subtopics with counts

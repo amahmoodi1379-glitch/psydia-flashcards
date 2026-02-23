@@ -15,39 +15,42 @@ export function useSubjectProgress() {
     queryKey: ["subject-progress", user?.id],
     queryFn: async (): Promise<SubjectProgressData[]> => {
       if (!user) {
-        // For guests, just get total counts per subject
-        const { data: allSubjects } = await supabase
-          .from("subjects")
-          .select("id, title, display_order")
-          .order("display_order");
+        // For guests, use RPC for counts + lightweight structure queries
+        const [subjectsRes, topicsRes, subtopicsRes, countRes] = await Promise.all([
+          supabase.from("subjects").select("id, title, display_order").order("display_order"),
+          supabase.from("topics").select("id, subject_id"),
+          supabase.from("subtopics").select("id, topic_id"),
+          supabase.rpc("get_question_counts_per_subtopic"),
+        ]);
 
-        if (!allSubjects) return [];
+        if (!subjectsRes.data) return [];
 
-        // Get question counts per subject with JOINs
-        const result: SubjectProgressData[] = [];
-        for (const subject of allSubjects) {
-          const { count } = await supabase
-            .from("questions")
-            .select("id", { count: "exact", head: true })
-            .eq("is_active", true)
-            .in(
-              "subtopic_id",
-              (await supabase
-                .from("subtopics")
-                .select("id")
-                .in(
-                  "topic_id",
-                  (await supabase.from("topics").select("id").eq("subject_id", subject.id)).data?.map(t => t.id) || []
-                )).data?.map(st => st.id) || []
-            );
-
-          result.push({
-            name: subject.title,
-            progress: 0,
-            total: count || 0,
-          });
+        // Map subtopic → topic → subject
+        const subtopicToTopic = new Map<string, string>();
+        for (const st of subtopicsRes.data || []) {
+          subtopicToTopic.set(st.id, st.topic_id);
         }
-        return result;
+        const topicToSubject = new Map<string, string>();
+        for (const t of topicsRes.data || []) {
+          topicToSubject.set(t.id, t.subject_id);
+        }
+
+        // Aggregate counts per subject from RPC result
+        const countBySubject = new Map<string, number>();
+        for (const row of countRes.data || []) {
+          const r = row as { subtopic_id: string; question_count: number };
+          const topicId = subtopicToTopic.get(r.subtopic_id);
+          const subjectId = topicId ? topicToSubject.get(topicId) : undefined;
+          if (subjectId) {
+            countBySubject.set(subjectId, (countBySubject.get(subjectId) || 0) + Number(r.question_count));
+          }
+        }
+
+        return subjectsRes.data.map((s) => ({
+          name: s.title,
+          progress: 0,
+          total: countBySubject.get(s.id) || 0,
+        }));
       }
 
       const { data, error } = await supabase.rpc("get_subject_progress");
