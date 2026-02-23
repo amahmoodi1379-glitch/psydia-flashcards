@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { hmac } from "https://deno.land/x/hmac@v2.0.1/mod.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -17,11 +16,35 @@ const jsonHeaders = {
   "Content-Type": "application/json",
 };
 
+/** Convert a string to Uint8Array */
+function encode(s: string): Uint8Array {
+  return new TextEncoder().encode(s);
+}
+
+/** Convert ArrayBuffer to hex string */
+function toHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** HMAC-SHA256 using Web Crypto API */
+async function hmacSha256(key: BufferSource, data: string): Promise<ArrayBuffer> {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    key,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  return crypto.subtle.sign("HMAC", cryptoKey, encode(data));
+}
+
 /**
  * Validate Telegram initData using HMAC-SHA256.
  * See: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
  */
-function validateInitData(initData: string, botToken: string): boolean {
+async function validateInitData(initData: string, botToken: string): Promise<boolean> {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
   if (!hash) return false;
@@ -34,9 +57,9 @@ function validateInitData(initData: string, botToken: string): boolean {
     .join("\n");
 
   // secret_key = HMAC-SHA256("WebAppData", bot_token)
-  const secretKey = hmac("sha256", "WebAppData", botToken);
+  const secretKey = await hmacSha256(encode("WebAppData"), botToken);
   // data_hash = HMAC-SHA256(secret_key, data_check_string)
-  const dataHash = hmac("sha256", secretKey, dataCheckString);
+  const dataHash = toHex(await hmacSha256(secretKey, dataCheckString));
 
   return dataHash === hash;
 }
@@ -130,7 +153,7 @@ serve(async (req) => {
     const telegramId = String(tgUser.id);
     const email = `tg_${telegramId}@telegram.psydia.app`;
     // Deterministic password: never exposed to client
-    const password = hmac("sha256", BOT_TOKEN, `psydia_user_${telegramId}`) as string;
+    const password = toHex(await hmacSha256(encode(BOT_TOKEN), `psydia_user_${telegramId}`));
     const displayName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ") || "کاربر";
 
     // 4. Try to sign in existing user

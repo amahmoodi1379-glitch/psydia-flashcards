@@ -14,7 +14,7 @@ export function useLeitnerToggle() {
 
   const mutation = useMutation({
     mutationFn: async (questionId: string): Promise<ToggleLeitnerResult> => {
-      if (!user) throw new Error("برای استفاده از لایتنر باید وارد حساب شوید.");
+      if (!user) throw new Error("احراز هویت انجام نشده است.");
 
       const { data, error } = await supabase.rpc("toggle_leitner", {
         _question_id: questionId,

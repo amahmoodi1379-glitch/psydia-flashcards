@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { PlayCircle, BookOpen, Box, Star, Lock, AlertCircle } from "lucide-react";
 import { cn, toPersianNumber } from "@/lib/utils";
 import { SubjectSelector } from "@/components/exam/SubjectSelector";
-import { useAuth } from "@/contexts/AuthContext";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useFrequentlyWrong } from "@/hooks/useFrequentlyWrong";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -17,7 +16,6 @@ import {
 
 export default function ExamPage() {
   const navigate = useNavigate();
-  const { user, isLoading: authLoading } = useAuth();
   const { dueCount, totalInLeitner, isLoading: leitnerLoading } = useLeitnerDueCount();
   const { bookmarkCount, isLoading: bookmarksLoading } = useBookmarks();
   const { wrongCount, isLoading: wrongLoading } = useFrequentlyWrong();
@@ -48,7 +46,7 @@ export default function ExamPage() {
     });
   };
 
-  const isInitialLoading = authLoading || leitnerLoading;
+  const isInitialLoading = leitnerLoading;
 
   return (
     <AppLayout>
@@ -67,11 +65,10 @@ export default function ExamPage() {
         </header>
 
         {/* Leitner Review Section */}
-        {user && (
-          <section 
-            className="mb-6 animate-fade-in"
-            style={{ animationDelay: "0.1s" }}
-          >
+        <section 
+          className="mb-6 animate-fade-in"
+          style={{ animationDelay: "0.1s" }}
+        >
             {isInitialLoading ? (
               <DailyReviewSkeleton />
             ) : (
@@ -125,28 +122,13 @@ export default function ExamPage() {
                 )}
               </div>
             )}
-          </section>
-        )}
-
-        {!user && (
-          <div 
-            className="mb-6 animate-fade-in"
-            style={{ animationDelay: "0.1s" }}
-          >
-            <div className="bg-warning/10 border border-warning/20 rounded-xl p-3">
-              <p className="text-sm text-warning text-center">
-                برای استفاده از لایتنر و ذخیره پیشرفت، وارد حساب شوید
-              </p>
-            </div>
-          </div>
-        )}
+        </section>
 
         {/* Bookmarks Review Section - Only for advanced users */}
-        {user && (
-          <section 
-            className="mb-4 animate-fade-in"
-            style={{ animationDelay: "0.12s" }}
-          >
+        <section 
+          className="mb-4 animate-fade-in"
+          style={{ animationDelay: "0.12s" }}
+        >
             {bookmarksLoading || subscriptionLoading ? (
               <ReviewCardSkeleton />
             ) : (
@@ -187,15 +169,13 @@ export default function ExamPage() {
                 </Button>
               </div>
             )}
-          </section>
-        )}
+        </section>
 
         {/* Frequently Wrong Questions Section - Only for advanced users */}
-        {user && (
-          <section 
-            className="mb-6 animate-fade-in"
-            style={{ animationDelay: "0.14s" }}
-          >
+        <section 
+          className="mb-6 animate-fade-in"
+          style={{ animationDelay: "0.14s" }}
+        >
             {wrongLoading || subscriptionLoading ? (
               <ReviewCardSkeleton />
             ) : (
@@ -236,8 +216,7 @@ export default function ExamPage() {
                 </Button>
               </div>
             )}
-          </section>
-        )}
+        </section>
 
         {/* Subject Selection Section */}
         <section 

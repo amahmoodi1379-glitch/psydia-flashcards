@@ -2,7 +2,6 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Crown, Zap, Sparkles, Brain, Check } from "lucide-react";
 import { cn, toPersianNumber } from "@/lib/utils";
@@ -77,7 +76,6 @@ const formatPrice = (price: number) => {
 };
 
 export default function SubscriptionPage() {
-  const { user } = useAuth();
   const { subscription, isLoading } = useSubscription();
 
   const currentPlan = subscription?.plan || "free";
@@ -98,7 +96,7 @@ export default function SubscriptionPage() {
         </div>
 
         {/* Current Status */}
-        {user && !isLoading && (
+        {!isLoading && (
           <Card className="mb-6 border-primary/20 bg-primary/5 animate-fade-in" style={{ animationDelay: "0.1s" }}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -201,17 +199,6 @@ export default function SubscriptionPage() {
             );
           })}
         </div>
-
-        {/* Login Required Message */}
-        {!user && (
-          <Card className="mt-6 border-2 border-dashed border-muted animate-fade-in" style={{ animationDelay: "0.4s" }}>
-            <CardContent className="p-6 text-center">
-              <p className="text-muted-foreground">
-                برای دریافت اشتراک، ابتدا وارد حساب کاربری خود شوید
-              </p>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Payment Info */}
         <div className="mt-6 text-center animate-fade-in" style={{ animationDelay: "0.45s" }}>

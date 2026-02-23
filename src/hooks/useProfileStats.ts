@@ -20,7 +20,7 @@ export function useProfileStats() {
           totalAnswered: 0,
           accuracy: 0,
           streak: 0,
-          displayName: "کاربر مهمان",
+          displayName: "کاربر",
         };
       }
 
@@ -66,7 +66,7 @@ export function useProfileStats() {
       totalAnswered: 0,
       accuracy: 0,
       streak: 0,
-      displayName: "کاربر مهمان",
+      displayName: "کاربر",
     },
     isLoading,
   };

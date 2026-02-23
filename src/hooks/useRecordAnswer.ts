@@ -18,7 +18,7 @@ export function useRecordAnswer() {
     options?: RecordAnswerOptions
   ): Promise<RecordAnswerResult> => {
     if (!user) {
-      throw new RecordAnswerError("برای ثبت پاسخ باید وارد حساب شوید.");
+      throw new RecordAnswerError("احراز هویت انجام نشده است.");
     }
 
     return await recordAnswerWithRpc(supabase, {
