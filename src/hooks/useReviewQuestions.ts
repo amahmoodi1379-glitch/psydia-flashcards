@@ -46,7 +46,8 @@ async function fetchReviewQuestionsRpc(limit: number, filter?: ReviewFilter): Pr
 
 export function useReviewQuestions(
   limit: number = 10,
-  filter: ReviewFilter = { type: "daily" }
+  filter: ReviewFilter = { type: "daily" },
+  enabled: boolean = true
 ): ReviewQuestionsResult {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +59,11 @@ export function useReviewQuestions(
   const filterId = filter.id;
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
     let active = true;
 
     async function fetchQuestions() {
@@ -118,79 +124,7 @@ export function useReviewQuestions(
     return () => {
       active = false;
     };
-  }, [limit, filterType, filterId]);
+  }, [limit, filterType, filterId, enabled]);
 
   return { questions, isLoading, error, dueCount, newCount };
-}
-
-export function useDueCount(filter?: ReviewFilter): {
-  dueCount: number;
-  newCount: number;
-  total: number;
-  isLoading: boolean;
-} {
-  const [dueCount, setDueCount] = useState(0);
-  const [newCount, setNewCount] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const filterType = filter?.type;
-  const filterId = filter?.id;
-
-  useEffect(() => {
-    let active = true;
-
-    async function fetchCounts() {
-      if (!active) {
-        return;
-      }
-
-      setIsLoading(true);
-
-      try {
-        if ((filterType === "subject" || filterType === "topic" || filterType === "subtopic") && !filterId) {
-          if (!active) {
-            return;
-          }
-
-          setDueCount(0);
-          setNewCount(0);
-          setTotal(0);
-          return;
-        }
-
-        const rows = await fetchReviewQuestionsRpc(1, filterType ? { type: filterType, id: filterId } : undefined);
-
-        if (!active) {
-          return;
-        }
-
-        const counts = rows[0];
-        const due = counts?.due_count ?? 0;
-        const fresh = counts?.new_count ?? 0;
-
-        setDueCount(due);
-        setNewCount(fresh);
-        setTotal(due + fresh);
-      } catch (err) {
-        if (!active) {
-          return;
-        }
-
-        console.error("Error fetching due count:", err);
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchCounts();
-
-    return () => {
-      active = false;
-    };
-  }, [filterType, filterId]);
-
-  return { dueCount, newCount, total, isLoading };
 }

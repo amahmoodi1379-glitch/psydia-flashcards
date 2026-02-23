@@ -660,6 +660,46 @@ export type Database = {
           subtopic_id: string
         }[]
       }
+      get_subtopic_questions: {
+        Args: {
+          _subtopic_id: string
+          _page?: number
+          _page_size?: number
+          _only_unanswered?: boolean
+        }
+        Returns: {
+          id: string
+          stem_text: string
+          choices: Json
+          subtopic_id: string
+          is_answered: boolean
+          is_in_leitner: boolean
+          total_count: number
+        }[]
+      }
+      toggle_leitner: {
+        Args: { _question_id: string }
+        Returns: {
+          is_in_leitner: boolean
+          box_number: number
+        }[]
+      }
+      get_leitner_due_count: {
+        Args: Record<string, never>
+        Returns: {
+          due_count: number
+          total_in_leitner: number
+        }[]
+      }
+      get_leitner_review_questions: {
+        Args: { _limit?: number }
+        Returns: {
+          id: string
+          stem_text: string
+          choices: Json
+          subtopic_id: string
+        }[]
+      }
       get_hierarchical_mastery: {
         Args: never
         Returns: {

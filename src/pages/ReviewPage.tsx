@@ -1,15 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Trophy, Star, Flag, Lock } from "lucide-react";
-import { cn, toPersianNumber } from "@/lib/utils";
+import { cn, toPersianNumber, shuffleChoices } from "@/lib/utils";
+import { useLeitnerReview } from "@/hooks/useLeitnerReview";
 import { useReviewQuestions, ReviewFilter } from "@/hooks/useReviewQuestions";
 import { useRecordAnswer } from "@/hooks/useRecordAnswer";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useSessionPersistence, SavedSession } from "@/hooks/useSessionPersistence";
 import { ReviewPageSkeleton } from "@/components/skeleton/ReviewPageSkeleton";
 import { useReportQuestion } from "@/hooks/useReportQuestion";
 import { toast } from "sonner";
@@ -17,69 +18,31 @@ import { toast } from "sonner";
 export default function ReviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
-  // Read params from URL as a reliable fallback when navigation state is missing.
-  const params = new URLSearchParams(location.search);
-  const qpType = params.get("type") as ReviewFilter["type"] | null;
-  const qpId = params.get("id") ?? undefined;
-  const qpSize = params.get("size");
-  const qpTitle = params.get("title");
+  // Determine review mode: leitner (default) or bookmarks/frequently_wrong
+  const stateFilter: ReviewFilter | undefined = location.state?.filter;
+  const sessionTitle = location.state?.title ?? "مرور لایتنر";
+  const isSpecialFilter = stateFilter?.type === "bookmarks" || stateFilter?.type === "frequently_wrong";
 
-  // Read last navigation intent from sessionStorage as a second fallback
-  let storedNav:
-    | { sessionSize: number; filter: ReviewFilter; title: string; ts?: number }
-    | undefined;
-  try {
-    const raw = sessionStorage.getItem("review_nav");
-    if (raw) storedNav = JSON.parse(raw);
-  } catch {
-    // ignore
-  }
+  // Fetch questions based on mode
+  const leitnerResult = useLeitnerReview(20);
+  const specialResult = useReviewQuestions(20, stateFilter ?? { type: "daily" }, isSpecialFilter);
 
-  const storedFilter = storedNav?.filter;
-  const storedSessionSize = storedNav?.sessionSize;
-  const storedTitle = storedNav?.title;
+  const questions = isSpecialFilter ? specialResult.questions : leitnerResult.questions;
+  const isLoading = isSpecialFilter ? specialResult.isLoading : leitnerResult.isLoading;
+  const error = isSpecialFilter ? specialResult.error : leitnerResult.error;
 
-  // Check if resuming a session
-  const resumedSession: SavedSession | undefined = location.state?.savedSession;
-
-  const sessionSize =
-    resumedSession?.sessionSize ||
-    location.state?.sessionSize ||
-    (qpSize ? Number(qpSize) : undefined) ||
-    storedSessionSize ||
-    10;
-
-  const filter: ReviewFilter =
-    resumedSession?.filter ||
-    location.state?.filter ||
-    (qpType ? { type: qpType, id: qpId } : undefined) ||
-    storedFilter ||
-    { type: "daily" };
-
-  const sessionTitle =
-    resumedSession?.title ||
-    location.state?.title ||
-    qpTitle ||
-    storedTitle ||
-    "مرور روزانه";
-
-
-  const { questions, isLoading, error } = useReviewQuestions(sessionSize, filter);
   const { recordAnswer } = useRecordAnswer();
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
   const { hasFeature, refetch: refetchSubscription } = useSubscription();
-  const { saveSession, clearSession } = useSessionPersistence();
   const { reportQuestion, isReporting } = useReportQuestion();
   
-  // Initialize state from resumed session or defaults
-  const [currentIndex, setCurrentIndex] = useState(resumedSession?.currentIndex || 0);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [correctCount, setCorrectCount] = useState(resumedSession?.correctCount || 0);
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(
-    () => new Set(resumedSession?.answeredQuestions || [])
-  );
+  const [correctCount, setCorrectCount] = useState(0);
+  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
   const [answerResult, setAnswerResult] = useState<{
     isCorrect: boolean;
     correctIndex: number;
@@ -92,115 +55,70 @@ export default function ReviewPage() {
   const isBookmarked = currentQuestion ? checkIsBookmarked(currentQuestion.id) : false;
   const canBookmark = hasFeature("bookmarks");
 
-  // Save session whenever state changes (after questions are loaded)
-  useEffect(() => {
-    if (questions.length > 0 && !isComplete && currentIndex < questions.length) {
-      saveSession({
-        filter,
-        sessionSize,
-        title: sessionTitle,
-        currentIndex,
-        correctCount,
-        questionIds: questions.map(q => q.id),
-        answeredQuestions: Array.from(answeredQuestions),
+  // Precompute shuffled choices
+  const shuffledData = useMemo(() => {
+    const map = new Map<string, { shuffled: string[]; indexMap: number[] }>();
+    for (const q of questions) {
+      map.set(q.id, shuffleChoices(q.choices, q.id));
+    }
+    return map;
+  }, [questions]);
+
+  const handleAnswer = async (selectedShuffledIndex: number, correct: boolean, correctShuffledIndex: number, explanation?: string) => {
+    if (!currentQuestion || answeredQuestions.has(currentQuestion.id)) return;
+
+    const existingRequestId = answerRequestIdsRef.current.get(currentQuestion.id);
+    const requestId = existingRequestId ?? crypto.randomUUID();
+    answerRequestIdsRef.current.set(currentQuestion.id, requestId);
+
+    // Map shuffled index back to original
+    const shuffle = shuffledData.get(currentQuestion.id);
+    const originalSelectedIndex = shuffle ? shuffle.indexMap[selectedShuffledIndex] : selectedShuffledIndex;
+
+    try {
+      const result = await recordAnswer(currentQuestion.id, originalSelectedIndex, correct, {
+        clientRequestId: requestId,
       });
-    }
-  }, [currentIndex, correctCount, answeredQuestions, questions, isComplete]);
 
-  // Ensure current position always lands on a valid unanswered question.
-  useEffect(() => {
-    if (questions.length > 0) {
-      const currentQ = questions[currentIndex];
-      if (currentQ && answeredQuestions.has(currentQ.id)) {
-        const nextUnanswered = questions.findIndex(
-          (q, i) => i >= currentIndex && !answeredQuestions.has(q.id)
-        );
-
-        if (nextUnanswered !== -1) {
-          setCurrentIndex(nextUnanswered);
-          setHasAnswered(false);
-          setAnswerResult(undefined);
-          return;
-        }
-
-        const firstUnanswered = questions.findIndex((q) => !answeredQuestions.has(q.id));
-        if (firstUnanswered !== -1) {
-          setCurrentIndex(firstUnanswered);
-          setHasAnswered(false);
-          setAnswerResult(undefined);
-        } else {
-          setIsComplete(true);
-        }
-      } else if (currentQ) {
-        setHasAnswered(false);
-        setAnswerResult(undefined);
-      }
-    }
-  }, [questions, currentIndex, answeredQuestions]);
-
-  const handleAnswer = async (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => {
-    if (currentQuestion) {
-      if (answeredQuestions.has(currentQuestion.id)) {
+      if (!result.quotaAllowed) {
+        toast.error("سهمیه روزانه شما تمام شده است. برای ادامه، اشتراک تهیه کنید.");
+        navigate("/subscription");
         return;
       }
 
-      const existingRequestId = answerRequestIdsRef.current.get(currentQuestion.id);
-      const requestId = existingRequestId ?? crypto.randomUUID();
-      answerRequestIdsRef.current.set(currentQuestion.id, requestId);
+      setHasAnswered(true);
+      setAnswerResult({
+        isCorrect: correct,
+        correctIndex: correctShuffledIndex,
+        explanation,
+      });
 
-      try {
-        const result = await recordAnswer(currentQuestion.id, selectedIndex, correct, {
-          clientRequestId: requestId,
-        });
-
-        if (!result.quotaAllowed) {
-          toast.error("سهمیه روزانه شما تمام شده است. برای ادامه، اشتراک تهیه کنید.");
-          navigate("/subscription");
-          return;
-        }
-
-        setHasAnswered(true);
-        setAnswerResult({
-          isCorrect: correct,
-          correctIndex,
-          explanation,
-        });
-
-        if (correct) {
-          setCorrectCount((prev) => prev + 1);
-        }
-
-        setAnsweredQuestions((prev) => new Set(prev).add(currentQuestion.id));
-        await refetchSubscription();
-      } catch (recordError) {
-        const message =
-          recordError instanceof Error
-            ? recordError.message
-            : "ذخیره پاسخ انجام نشد. لطفاً دوباره تلاش کنید.";
-        toast.error(`${message} شما می‌توانید همین سوال را دوباره پاسخ دهید.`);
-
-        setHasAnswered(false);
-        setAnswerResult(undefined);
+      if (correct) {
+        setCorrectCount((prev) => prev + 1);
       }
+
+      setAnsweredQuestions((prev) => new Set(prev).add(currentQuestion.id));
+      await Promise.all([
+        refetchSubscription(),
+        queryClient.invalidateQueries({ queryKey: ["leitner-due-count"] }),
+      ]);
+    } catch (recordError) {
+      const message =
+        recordError instanceof Error
+          ? recordError.message
+          : "ذخیره پاسخ انجام نشد. لطفاً دوباره تلاش کنید.";
+      toast.error(`${message} شما می‌توانید همین سوال را دوباره پاسخ دهید.`);
+
+      setHasAnswered(false);
+      setAnswerResult(undefined);
     }
   };
 
   const handleNextQuestion = () => {
     if (currentIndex >= totalQuestions - 1) {
       setIsComplete(true);
-      clearSession(); // Clear saved session on completion
     } else {
-      const nextUnanswered = questions.findIndex(
-        (q, i) => i > currentIndex && !answeredQuestions.has(q.id)
-      );
-
-      if (nextUnanswered !== -1) {
-        setCurrentIndex(nextUnanswered);
-      } else {
-        setIsComplete(true);
-        clearSession();
-      }
-
+      setCurrentIndex((prev) => prev + 1);
       setHasAnswered(false);
       setAnswerResult(undefined);
     }
@@ -240,7 +158,7 @@ export default function ReviewPage() {
     return (
       <AppLayout hideNav>
         <div className="min-h-screen flex flex-col items-center justify-center p-6">
-          <p className="text-destructive mb-4">{error || "سوالی یافت نشد"}</p>
+          <p className="text-destructive mb-4">{error || "سوالی برای مرور یافت نشد"}</p>
           <Button variant="outline" onClick={handleGoBack}>
             بازگشت
           </Button>
@@ -251,7 +169,7 @@ export default function ReviewPage() {
 
   // Complete state
   if (isComplete) {
-    const percentage = Math.round((correctCount / totalQuestions) * 100);
+    const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
     
     return (
       <AppLayout hideNav>
@@ -263,7 +181,7 @@ export default function ReviewPage() {
             آفرین! 🎉
           </h2>
           <p className="text-muted-foreground text-center mb-4">
-            جلسه را با موفقیت تمام کردید.
+            جلسه مرور را با موفقیت تمام کردید.
           </p>
           
           {/* Stats */}
@@ -285,6 +203,8 @@ export default function ReviewPage() {
       </AppLayout>
     );
   }
+
+  const currentShuffle = currentQuestion ? shuffledData.get(currentQuestion.id) : undefined;
 
   return (
     <AppLayout hideNav>
@@ -334,12 +254,13 @@ export default function ReviewPage() {
 
         {/* Question Area */}
         <div className="flex-1 flex flex-col px-4 py-6 overflow-y-auto">
-          {currentQuestion && (
+          {currentQuestion && currentShuffle && (
             <QuestionCard
               key={currentQuestion.id}
               questionId={currentQuestion.id}
               question={currentQuestion.stem_text}
-              choices={currentQuestion.choices}
+              choices={currentShuffle.shuffled}
+              indexMap={currentShuffle.indexMap}
               onAnswer={handleAnswer}
               hasAnswered={hasAnswered}
               answerResult={answerResult}

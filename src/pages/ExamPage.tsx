@@ -1,68 +1,38 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, RotateCcw, Clock, BookOpen, Star, Lock, AlertCircle } from "lucide-react";
+import { PlayCircle, BookOpen, Box, Star, Lock, AlertCircle } from "lucide-react";
 import { cn, toPersianNumber } from "@/lib/utils";
-import { useDueCount } from "@/hooks/useReviewQuestions";
 import { SubjectSelector } from "@/components/exam/SubjectSelector";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useFrequentlyWrong } from "@/hooks/useFrequentlyWrong";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useSessionPersistence } from "@/hooks/useSessionPersistence";
+import { useLeitnerDueCount } from "@/hooks/useLeitnerDueCount";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { 
   DailyReviewSkeleton, 
   ReviewCardSkeleton, 
 } from "@/components/skeleton/ExamPageSkeleton";
 
-const sessionSizes = [10, 20, 30];
-
 export default function ExamPage() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
-  const [sessionSize, setSessionSize] = useState(20);
-  const { dueCount, newCount, total, isLoading } = useDueCount();
+  const { dueCount, totalInLeitner, isLoading: leitnerLoading } = useLeitnerDueCount();
   const { bookmarkCount, isLoading: bookmarksLoading } = useBookmarks();
   const { wrongCount, isLoading: wrongLoading } = useFrequentlyWrong();
   const { hasFeature, isLoading: subscriptionLoading } = useSubscription();
-  const { savedSession, hasActiveSession, getRemainingCount, clearSession } = useSessionPersistence();
   
   const canBookmark = hasFeature("bookmarks");
   const canWrongReview = hasFeature("wrong_review");
 
-  const handleStartDailyReview = () => {
-    clearSession(); // Clear any old session
-    navigate("/review", { 
-      state: { 
-        sessionSize,
-        filter: { type: "daily" },
-        title: "مرور روزانه"
-      } 
-    });
-  };
-
-  const handleResumeSession = () => {
-    if (savedSession) {
-      navigate("/review", { 
-        state: { 
-          resume: true,
-          savedSession 
-        } 
-      });
-    }
-  };
-
-  const handleClearSession = () => {
-    clearSession();
+  const handleStartLeitnerReview = () => {
+    navigate("/review");
   };
 
   const handleStartBookmarksReview = () => {
-    clearSession();
     navigate("/review", { 
       state: { 
-        sessionSize: Math.min(sessionSize, bookmarkCount),
         filter: { type: "bookmarks" },
         title: "مرور نشان‌شده‌ها"
       } 
@@ -70,18 +40,15 @@ export default function ExamPage() {
   };
 
   const handleStartWrongReview = () => {
-    clearSession();
     navigate("/review", { 
       state: { 
-        sessionSize: Math.min(sessionSize, wrongCount),
         filter: { type: "frequently_wrong" },
         title: "مرور سوالات پراشتباه"
       } 
     });
   };
 
-  const reviewableCount = dueCount + newCount;
-  const isInitialLoading = authLoading || isLoading;
+  const isInitialLoading = authLoading || leitnerLoading;
 
   return (
     <AppLayout>
@@ -99,74 +66,31 @@ export default function ExamPage() {
           </p>
         </header>
 
-        {/* Resume Card - Only visible if session is active */}
-        {hasActiveSession && savedSession && (
-          <div 
-            className="mb-4 animate-fade-in"
-            style={{ animationDelay: "0.05s" }}
+        {/* Leitner Review Section */}
+        {user && (
+          <section 
+            className="mb-6 animate-fade-in"
+            style={{ animationDelay: "0.1s" }}
           >
-            <div className="w-full bg-accent/10 border border-accent/30 rounded-2xl p-4">
-              <button
-                onClick={handleResumeSession}
-                className="w-full flex items-center gap-4 hover:opacity-90 transition-opacity"
-              >
-                <div className="w-12 h-12 bg-accent/20 rounded-xl flex items-center justify-center">
-                  <RotateCcw className="w-6 h-6 text-accent" />
+            {isInitialLoading ? (
+              <DailyReviewSkeleton />
+            ) : (
+              <div className="bg-card rounded-2xl p-5 border border-border">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+                    <Box className="w-7 h-7 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-bold text-foreground mb-1">
+                      مرور لایتنر
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      سوالاتی که به لایتنر اضافه کرده‌اید و نوبت مرورشان رسیده
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right flex-1">
-                  <p className="font-semibold text-foreground">ادامه آزمون قبلی</p>
-                  <p className="text-sm text-muted-foreground">
-                    {savedSession.title} • {toPersianNumber(getRemainingCount())} سوال باقی مانده
-                  </p>
-                </div>
-              </button>
-              <div className="mt-3 pt-3 border-t border-accent/20 flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-accent hover:text-accent"
-                  onClick={handleResumeSession}
-                >
-                  ادامه
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-muted-foreground hover:text-destructive"
-                  onClick={handleClearSession}
-                >
-                  حذف جلسه
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Daily Review Section */}
-        <section 
-          className="mb-6 animate-fade-in"
-          style={{ animationDelay: "0.1s" }}
-        >
-          {isInitialLoading ? (
-            <DailyReviewSkeleton />
-          ) : (
-            <div className="bg-card rounded-2xl p-5 border border-border">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-                  <Clock className="w-7 h-7 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-bold text-foreground mb-1">
-                    مرور روزانه
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    سوالات بر اساس سیستم Leitner/SM2 (تا باکس ۷)
-                  </p>
-                </div>
-              </div>
-
-              {/* Stats */}
-              {user && (
+                {/* Stats */}
                 <div className="flex gap-3 mb-4">
                   <div className="flex-1 bg-secondary/50 rounded-xl p-3 text-center">
                     <p className="text-2xl font-bold text-warning">
@@ -175,59 +99,47 @@ export default function ExamPage() {
                     <p className="text-xs text-muted-foreground">نیازمند مرور</p>
                   </div>
                   <div className="flex-1 bg-secondary/50 rounded-xl p-3 text-center">
-                    <p className="text-2xl font-bold text-success">
-                      {toPersianNumber(newCount)}
+                    <p className="text-2xl font-bold text-primary">
+                      {toPersianNumber(totalInLeitner)}
                     </p>
-                    <p className="text-xs text-muted-foreground">سوال جدید</p>
+                    <p className="text-xs text-muted-foreground">کل در لایتنر</p>
                   </div>
                 </div>
-              )}
 
-              {!user && (
-                <div className="bg-warning/10 border border-warning/20 rounded-xl p-3 mb-4">
-                  <p className="text-sm text-warning text-center">
-                    برای ذخیره پیشرفت، وارد حساب شوید
+                {/* Start Button */}
+                <Button
+                  variant="hero"
+                  size="lg"
+                  className="w-full gap-2"
+                  onClick={handleStartLeitnerReview}
+                  disabled={dueCount === 0}
+                >
+                  <PlayCircle className="w-5 h-5" />
+                  {dueCount > 0 ? "شروع مرور لایتنر" : "سوالی برای مرور نیست"}
+                </Button>
+
+                {totalInLeitner === 0 && (
+                  <p className="text-xs text-muted-foreground text-center mt-3">
+                    از بخش دروس، سوالات را به لایتنر اضافه کنید
                   </p>
-                </div>
-              )}
-
-              {/* Session Size Toggle */}
-              <div className="mb-4">
-                <p className="text-xs font-medium text-muted-foreground mb-2">
-                  تعداد سوالات
-                </p>
-                <div className="flex gap-2">
-                  {sessionSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSessionSize(size)}
-                      className={cn(
-                        "flex-1 py-2 rounded-xl font-semibold text-sm transition-all duration-200",
-                        sessionSize === size
-                          ? "bg-primary text-primary-foreground shadow-md"
-                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                      )}
-                    >
-                      {toPersianNumber(size)}
-                    </button>
-                  ))}
-                </div>
+                )}
               </div>
+            )}
+          </section>
+        )}
 
-              {/* Start Button */}
-              <Button
-                variant="hero"
-                size="lg"
-                className="w-full gap-2"
-                onClick={handleStartDailyReview}
-                disabled={(reviewableCount === 0 && !isLoading) || total === 0}
-              >
-                <PlayCircle className="w-5 h-5" />
-                شروع مرور روزانه
-              </Button>
+        {!user && (
+          <div 
+            className="mb-6 animate-fade-in"
+            style={{ animationDelay: "0.1s" }}
+          >
+            <div className="bg-warning/10 border border-warning/20 rounded-xl p-3">
+              <p className="text-sm text-warning text-center">
+                برای استفاده از لایتنر و ذخیره پیشرفت، وارد حساب شوید
+              </p>
             </div>
-          )}
-        </section>
+          </div>
+        )}
 
         {/* Bookmarks Review Section - Only for advanced users */}
         {user && (
@@ -339,35 +251,8 @@ export default function ExamPage() {
             </h2>
           </div>
           
-          <SubjectSelector sessionSize={sessionSize} />
+          <SubjectSelector />
         </section>
-
-        {/* Info Messages */}
-        {!isLoading && total === 0 && (
-          <div 
-            className="mt-6 text-center animate-fade-in" 
-            style={{ animationDelay: "0.2s" }}
-          >
-            <div className="bg-secondary/50 rounded-2xl p-6">
-              <p className="text-sm text-muted-foreground">
-                هیچ سوالی در پایگاه داده یافت نشد.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!isLoading && total > 0 && (
-          <div 
-            className="mt-6 text-center animate-fade-in" 
-            style={{ animationDelay: "0.2s" }}
-          >
-            <div className="bg-success/10 rounded-xl p-3 border border-success/20">
-              <p className="text-xs text-success">
-                ✓ {toPersianNumber(total)} سوال در دیتابیس
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </AppLayout>
   );

@@ -8,7 +8,11 @@ interface QuestionCardProps {
   questionId: string;
   question: string;
   choices: string[];
+  /** indexMap[shuffledPos] = originalPos. If omitted, indices are used as-is. */
+  indexMap?: number[];
   onAnswer: (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => void;
+  isAnsweringDisabled?: boolean;
+  onAnsweringDisabled?: () => void;
   hasAnswered: boolean;
   answerResult?: {
     isCorrect: boolean;
@@ -21,7 +25,10 @@ export function QuestionCard({
   questionId,
   question,
   choices,
+  indexMap,
   onAnswer,
+  isAnsweringDisabled = false,
+  onAnsweringDisabled,
   hasAnswered,
   answerResult,
 }: QuestionCardProps) {
@@ -35,26 +42,44 @@ export function QuestionCard({
   const correctIndex = answerResult?.correctIndex ?? -1;
   const explanation = answerResult?.explanation;
 
-  const checkAnswer = async (index: number) => {
+  // Build reverse map: reverseMap[originalPos] = shuffledPos
+  const reverseMap = indexMap
+    ? indexMap.reduce<Record<number, number>>((acc, origIdx, shuffledIdx) => {
+        acc[origIdx] = shuffledIdx;
+        return acc;
+      }, {})
+    : null;
+
+  const checkAnswer = async (shuffledIndex: number) => {
     setIsChecking(true);
     setHasError(false);
-    setPendingIndex(index);
+    setPendingIndex(shuffledIndex);
     
-    if (index !== -1) {
-      setSelectedIndex(index);
+    if (shuffledIndex !== -1) {
+      setSelectedIndex(shuffledIndex);
     }
+
+    // Map shuffled index to original for the RPC call
+    const originalIndex = shuffledIndex === -1
+      ? -1
+      : (indexMap ? indexMap[shuffledIndex] : shuffledIndex);
     
     try {
       const { data, error } = await supabase.rpc("check_answer", {
         _question_id: questionId,
-        _selected_index: index,
+        _selected_index: originalIndex,
       });
       
       if (error) throw error;
       
       const result = data?.[0];
       if (result) {
-        onAnswer(index, result.is_correct, result.correct_index, result.explanation || undefined);
+        // Map the returned correct_index (original) back to shuffled space
+        const shuffledCorrectIndex = reverseMap
+          ? (reverseMap[result.correct_index] ?? result.correct_index)
+          : result.correct_index;
+
+        onAnswer(shuffledIndex, result.is_correct, shuffledCorrectIndex, result.explanation || undefined);
       } else {
         throw new Error("No result returned");
       }
@@ -68,11 +93,21 @@ export function QuestionCard({
   };
 
   const handleChoiceClick = async (index: number) => {
+    if (isAnsweringDisabled) {
+      onAnsweringDisabled?.();
+      return;
+    }
+
     if (hasAnswered || isChecking) return;
     await checkAnswer(index);
   };
 
   const handleDontKnow = async () => {
+    if (isAnsweringDisabled) {
+      onAnsweringDisabled?.();
+      return;
+    }
+
     if (hasAnswered || isChecking) return;
     setUsedDontKnow(true);
     setSelectedIndex(null);
@@ -148,7 +183,8 @@ export function QuestionCard({
             className={cn(
               "w-full p-4 rounded-xl border-2 text-right transition-all duration-200 flex items-center gap-3",
               getChoiceStyle(index),
-              !hasAnswered && !isChecking && "active:scale-[0.98]"
+              !hasAnswered && !isChecking && !isAnsweringDisabled && "active:scale-[0.98]",
+              isAnsweringDisabled && "opacity-70 cursor-not-allowed"
             )}
           >
             <span className="flex-1 font-medium">{choice}</span>
@@ -175,7 +211,7 @@ export function QuestionCard({
           disabled={isChecking}
           className={cn(
             "w-full p-3 rounded-xl border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-all duration-200 flex items-center justify-center gap-2",
-            isChecking && "opacity-50 cursor-not-allowed"
+            (isChecking || isAnsweringDisabled) && "opacity-50 cursor-not-allowed"
           )}
         >
           {isChecking && usedDontKnow ? (

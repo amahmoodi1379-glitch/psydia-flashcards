@@ -7,80 +7,21 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useSubjectHierarchy, Subject, Topic, Subtopic } from "@/hooks/useSubjectHierarchy";
+import { useSubjectHierarchy, Subtopic } from "@/hooks/useSubjectHierarchy";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, toPersianNumber } from "@/lib/utils";
 
-interface SubjectSelectorProps {
-  sessionSize: number;
-}
-
-export const SubjectSelector = React.forwardRef<HTMLDivElement, SubjectSelectorProps>(
-  ({ sessionSize }, ref) => {
+export const SubjectSelector = React.forwardRef<HTMLDivElement>(
+  (_props, ref) => {
     const navigate = useNavigate();
     const { subjects, isLoading, error } = useSubjectHierarchy();
 
-    const persistReviewNav = (payload: {
-      sessionSize: number;
-      filter: { type: "daily" | "subject" | "topic" | "subtopic" | "bookmarks" | "frequently_wrong"; id?: string };
-      title: string;
-    }) => {
-      try {
-        sessionStorage.setItem(
-          "review_nav",
-          JSON.stringify({ ...payload, ts: Date.now() })
-        );
-      } catch {
-        // ignore
-      }
-    };
-
-    const handleSelectSubject = (subject: Subject) => {
-      persistReviewNav({
-        sessionSize,
-        filter: { type: "subject", id: subject.id },
-        title: subject.title,
-      });
-
-      const qs = new URLSearchParams({
-        size: String(sessionSize),
-        type: "subject",
-        id: subject.id,
-        title: subject.title,
-      });
-      navigate(`/review?${qs.toString()}`);
-    };
-
-    const handleSelectTopic = (topic: Topic) => {
-      persistReviewNav({
-        sessionSize,
-        filter: { type: "topic", id: topic.id },
-        title: topic.title,
-      });
-
-      const qs = new URLSearchParams({
-        size: String(sessionSize),
-        type: "topic",
-        id: topic.id,
-        title: topic.title,
-      });
-      navigate(`/review?${qs.toString()}`);
-    };
-
     const handleSelectSubtopic = (subtopic: Subtopic) => {
-      persistReviewNav({
-        sessionSize,
-        filter: { type: "subtopic", id: subtopic.id },
-        title: subtopic.title,
-      });
-
       const qs = new URLSearchParams({
-        size: String(sessionSize),
-        type: "subtopic",
         id: subtopic.id,
         title: subtopic.title,
       });
-      navigate(`/review?${qs.toString()}`);
+      navigate(`/subtopic?${qs.toString()}`);
     };
 
     if (isLoading) {
@@ -129,17 +70,6 @@ export const SubjectSelector = React.forwardRef<HTMLDivElement, SubjectSelectorP
               </AccordionTrigger>
               <AccordionContent className="px-2 pb-2">
                 <div className="space-y-1">
-                  {/* Quick start for entire subject */}
-                  <button
-                    onClick={() => handleSelectSubject(subject)}
-                    disabled={subject.questionCount === 0}
-                    className="w-full text-right px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="text-sm font-medium text-primary">
-                      مرور کل درس
-                    </span>
-                  </button>
-
                   {/* Topics */}
                   {subject.topics.length > 0 && (
                     <Accordion type="multiple" className="pr-2">
@@ -162,17 +92,6 @@ export const SubjectSelector = React.forwardRef<HTMLDivElement, SubjectSelectorP
                           </AccordionTrigger>
                           <AccordionContent className="pr-4">
                             <div className="space-y-1">
-                              {/* Quick start for topic */}
-                              <button
-                                onClick={() => handleSelectTopic(topic)}
-                                disabled={topic.questionCount === 0}
-                                className="w-full text-right px-3 py-2 rounded-lg bg-accent/10 hover:bg-accent/20 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <span className="text-xs font-medium text-accent">
-                                  مرور کل فصل
-                                </span>
-                              </button>
-
                               {/* Subtopics */}
                               {topic.subtopics.map((subtopic) => (
                                 <button

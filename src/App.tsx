@@ -10,6 +10,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import ExamPage from "./pages/ExamPage";
 import ProfilePage from "./pages/ProfilePage";
 import ReviewPage from "./pages/ReviewPage";
+import SubtopicQuestionsPage from "./pages/SubtopicQuestionsPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import LoginPage from "./pages/LoginPage";
@@ -42,6 +43,7 @@ const App = () => (
                 <Route path="/" element={<ExamPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/review" element={<ReviewPage />} />
+                <Route path="/subtopic" element={<SubtopicQuestionsPage />} />
                 <Route path="/subscription" element={<SubscriptionPage />} />
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/login" element={<LoginPage />} />
