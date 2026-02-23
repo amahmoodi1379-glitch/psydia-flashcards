@@ -20,13 +20,11 @@ import { useLeitnerToggle } from "@/hooks/useLeitnerToggle";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useReportQuestion } from "@/hooks/useReportQuestion";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export default function SubtopicQuestionsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
 
   const params = new URLSearchParams(location.search);
   const subtopicId = params.get("id") ?? location.state?.subtopicId;
@@ -94,12 +92,6 @@ export default function SubtopicQuestionsPage() {
     correctShuffledIndex: number,
     explanation?: string
   ) => {
-    if (!user) {
-      toast.error("برای پاسخ‌دهی باید وارد حساب شوید.");
-      navigate("/login", { state: { from: { pathname: location.pathname } } });
-      return;
-    }
-
     if (answeredMap.has(questionId)) return;
 
     const requestId = answerRequestIdsRef.current.get(questionId) ?? crypto.randomUUID();
@@ -145,17 +137,7 @@ export default function SubtopicQuestionsPage() {
     }
   };
 
-  const handleAnsweringDisabled = () => {
-    toast.error("برای پاسخ‌دهی باید وارد حساب شوید.");
-    navigate("/login", { state: { from: { pathname: location.pathname } } });
-  };
-
   const handleToggleLeitner = async (questionId: string) => {
-    if (!user) {
-      toast.error("برای استفاده از لایتنر باید وارد حساب شوید.");
-      return;
-    }
-
     try {
       const result = await toggleLeitner(questionId);
       setLeitnerMap((prev) => new Map(prev).set(questionId, result.is_in_leitner));
@@ -278,14 +260,6 @@ export default function SubtopicQuestionsPage() {
           </button>
         </div>
 
-        {!user && (
-          <div className="px-4 py-3 border-b border-border bg-warning/10">
-            <p className="text-xs text-warning text-center">
-              برای پاسخ‌دادن و ذخیره پیشرفت، ابتدا وارد حساب شوید.
-            </p>
-          </div>
-        )}
-
         {/* Questions List */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
           {questions.length === 0 && !isLoading && (
@@ -348,8 +322,6 @@ export default function SubtopicQuestionsPage() {
                   question={q.stem_text}
                   choices={shuffle.shuffled}
                   indexMap={shuffle.indexMap}
-                  isAnsweringDisabled={!user}
-                  onAnsweringDisabled={handleAnsweringDisabled}
                   onAnswer={(selectedIndex, correct, correctIndex, explanation) =>
                     handleAnswer(q.id, selectedIndex, correct, correctIndex, explanation)
                   }
@@ -358,7 +330,7 @@ export default function SubtopicQuestionsPage() {
                 />
 
                 {/* Leitner Toggle - visible after answering */}
-                {!!answered && user && (
+                {!!answered && (
                   <div className="mt-3 animate-fade-in">
                     <button
                       onClick={() => handleToggleLeitner(q.id)}

@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { RequireAuth } from "@/components/auth/RequireAuth";
+import { TelegramAuthGate } from "@/components/auth/TelegramAuthGate";
 import { AdminGuard } from "@/components/admin/AdminGuard";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import ExamPage from "./pages/ExamPage";
@@ -14,7 +14,6 @@ import ReviewPage from "./pages/ReviewPage";
 import SubtopicQuestionsPage from "./pages/SubtopicQuestionsPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
-import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ContentManager from "./pages/admin/ContentManager";
@@ -40,16 +39,15 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                {/* Main app routes */}
-                <Route path="/" element={<ExamPage />} />
-                <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-                <Route path="/review" element={<RequireAuth><ReviewPage /></RequireAuth>} />
-                <Route path="/subtopic" element={<SubtopicQuestionsPage />} />
-                <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
-                <Route path="/login" element={<LoginPage />} />
+                {/* Main app routes — protected by Telegram Mini App auth */}
+                <Route path="/" element={<TelegramAuthGate><ExamPage /></TelegramAuthGate>} />
+                <Route path="/profile" element={<TelegramAuthGate><ProfilePage /></TelegramAuthGate>} />
+                <Route path="/review" element={<TelegramAuthGate><ReviewPage /></TelegramAuthGate>} />
+                <Route path="/subtopic" element={<TelegramAuthGate><SubtopicQuestionsPage /></TelegramAuthGate>} />
+                <Route path="/subscription" element={<TelegramAuthGate><SubscriptionPage /></TelegramAuthGate>} />
+                <Route path="/leaderboard" element={<TelegramAuthGate><LeaderboardPage /></TelegramAuthGate>} />
                 
-                {/* Admin routes - no Telegram guard, uses email auth */}
+                {/* Admin routes — uses email/password auth, separate from Telegram */}
                 <Route path="/admin" element={<AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>} />
                 <Route path="/admin/content" element={<AdminGuard><AdminLayout><ContentManager /></AdminLayout></AdminGuard>} />
                 <Route path="/admin/questions" element={<AdminGuard><AdminLayout><QuestionsManager /></AdminLayout></AdminGuard>} />

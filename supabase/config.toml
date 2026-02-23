@@ -11,3 +11,6 @@ max_rows = 1000
 
 [functions.cleanup-old-data]
 verify_jwt = false
+
+[functions.telegram-auth]
+verify_jwt = false

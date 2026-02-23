@@ -11,8 +11,6 @@ interface QuestionCardProps {
   /** indexMap[shuffledPos] = originalPos. If omitted, indices are used as-is. */
   indexMap?: number[];
   onAnswer: (selectedIndex: number, correct: boolean, correctIndex: number, explanation?: string) => void;
-  isAnsweringDisabled?: boolean;
-  onAnsweringDisabled?: () => void;
   hasAnswered: boolean;
   answerResult?: {
     isCorrect: boolean;
@@ -27,8 +25,6 @@ export function QuestionCard({
   choices,
   indexMap,
   onAnswer,
-  isAnsweringDisabled = false,
-  onAnsweringDisabled,
   hasAnswered,
   answerResult,
 }: QuestionCardProps) {
@@ -93,21 +89,11 @@ export function QuestionCard({
   };
 
   const handleChoiceClick = async (index: number) => {
-    if (isAnsweringDisabled) {
-      onAnsweringDisabled?.();
-      return;
-    }
-
     if (hasAnswered || isChecking) return;
     await checkAnswer(index);
   };
 
   const handleDontKnow = async () => {
-    if (isAnsweringDisabled) {
-      onAnsweringDisabled?.();
-      return;
-    }
-
     if (hasAnswered || isChecking) return;
     setUsedDontKnow(true);
     setSelectedIndex(null);
@@ -183,8 +169,7 @@ export function QuestionCard({
             className={cn(
               "w-full p-4 rounded-xl border-2 text-right transition-all duration-200 flex items-center gap-3",
               getChoiceStyle(index),
-              !hasAnswered && !isChecking && !isAnsweringDisabled && "active:scale-[0.98]",
-              isAnsweringDisabled && "opacity-70 cursor-not-allowed"
+              !hasAnswered && !isChecking && "active:scale-[0.98]"
             )}
           >
             <span className="flex-1 font-medium">{choice}</span>
@@ -211,7 +196,7 @@ export function QuestionCard({
           disabled={isChecking}
           className={cn(
             "w-full p-3 rounded-xl border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-all duration-200 flex items-center justify-center gap-2",
-            (isChecking || isAnsweringDisabled) && "opacity-50 cursor-not-allowed"
+            isChecking && "opacity-50 cursor-not-allowed"
           )}
         >
           {isChecking && usedDontKnow ? (

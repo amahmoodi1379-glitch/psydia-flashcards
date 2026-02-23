@@ -1,44 +1,28 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Moon, Sun, BookOpen, TrendingUp, Target, Lock, Pencil } from "lucide-react";
+import { Moon, Sun, BookOpen, TrendingUp, Target, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
 import { HierarchicalMasteryMap } from "@/components/profile/HierarchicalMasteryMap";
 import { ActivitySparkline } from "@/components/profile/ActivitySparkline";
 import { ExtendedActivityChart } from "@/components/profile/ExtendedActivityChart";
 import { SubjectProgress } from "@/components/profile/SubjectProgress";
-import { AvatarSelector, getAvatarEmoji } from "@/components/profile/AvatarSelector";
+import { getAvatarEmoji } from "@/components/profile/AvatarSelector";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfileStats } from "@/hooks/useProfileStats";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Card, CardContent } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
 import { toPersianNumber } from "@/lib/utils";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { telegramUser } = useAuth();
   const { stats, isLoading } = useProfileStats();
   const { resolvedTheme, setTheme } = useTheme();
   const { hasFeature } = useSubscription();
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Fetch user's avatar
-  useEffect(() => {
-    async function fetchAvatar() {
-      if (!user?.id) return;
-      const { data } = await supabase
-        .from("profiles")
-        .select("avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (data) {
-        setAvatarUrl(data.avatar_url);
-      }
-    }
-    fetchAvatar();
-  }, [user?.id]);
+  const avatarUrl = telegramUser?.avatar_url ?? null;
+  const displayName = telegramUser?.display_name ?? "کاربر";
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -53,25 +37,15 @@ export default function ProfilePage() {
         {/* Profile Header */}
         <div className="flex items-center justify-between mb-8 animate-fade-in">
           <div className="flex items-center gap-4">
-            <AvatarSelector 
-              currentAvatar={avatarUrl} 
-              onAvatarChange={setAvatarUrl}
-            >
-              <button className="relative group">
-                <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center text-3xl transition-transform group-hover:scale-105">
-                  {getAvatarEmoji(avatarUrl)}
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg">
-                  <Pencil className="w-3 h-3 text-primary-foreground" />
-                </div>
-              </button>
-            </AvatarSelector>
+            <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center text-3xl">
+              {getAvatarEmoji(avatarUrl)}
+            </div>
             <div>
               <h1 className="text-xl font-bold text-foreground">
-                {isLoading ? "..." : stats.displayName}
+                {isLoading ? "..." : (stats.displayName || displayName)}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {user ? "دانشجوی روانشناسی" : "کاربر مهمان"}
+                دانشجوی روانشناسی
               </p>
             </div>
           </div>
