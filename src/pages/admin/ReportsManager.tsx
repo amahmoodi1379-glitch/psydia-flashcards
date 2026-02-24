@@ -76,12 +76,12 @@ export default function ReportsManager() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <Flag className="h-7 w-7 text-destructive" />
-          <h1 className="text-3xl font-bold text-foreground">گزارشات سوالات</h1>
+      <div className="flex items-center justify-between mb-6 gap-3">
+        <div className="flex items-center gap-2">
+          <Flag className="h-5 w-5 md:h-7 md:w-7 text-destructive shrink-0" />
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">گزارشات سوالات</h1>
         </div>
-        <Badge variant="secondary" className="text-sm">
+        <Badge variant="secondary" className="text-sm shrink-0">
           {reports.length} گزارش
         </Badge>
       </div>
@@ -94,75 +94,128 @@ export default function ReportsManager() {
         <Card>
           <CardContent className="py-12 text-center">
             <Flag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground text-lg">هیچ گزارشی ثبت نشده است</p>
+            <p className="text-muted-foreground">هیچ گزارشی ثبت نشده است</p>
           </CardContent>
         </Card>
       ) : (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="text-base">لیست گزارشات</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>کاربر</TableHead>
-                  <TableHead>سوال (خلاصه)</TableHead>
-                  <TableHead>دلیل</TableHead>
-                  <TableHead>تاریخ</TableHead>
-                  <TableHead>عملیات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {reports.map((report) => (
-                  <TableRow key={report.id}>
-                    <TableCell className="font-medium">
-                      {report.profiles?.display_name || 'ناشناس'}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {report.questions?.stem_text || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{report.reason || 'other'}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {formatDate(report.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSelectedReport(report)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(report.id)}
-                          disabled={isDeleting === report.id}
-                        >
-                          {isDeleting === report.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
+          <CardContent className="p-3 sm:p-6">
+
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>کاربر</TableHead>
+                    <TableHead>سوال (خلاصه)</TableHead>
+                    <TableHead>دلیل</TableHead>
+                    <TableHead>تاریخ</TableHead>
+                    <TableHead>عملیات</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {reports.map((report) => (
+                    <TableRow key={report.id}>
+                      <TableCell className="font-medium">
+                        {report.profiles?.display_name || 'ناشناس'}
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {report.questions?.stem_text || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{report.reason || 'other'}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {formatDate(report.created_at)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedReport(report)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(report.id)}
+                            disabled={isDeleting === report.id}
+                          >
+                            {isDeleting === report.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Card List */}
+            <div className="md:hidden space-y-2">
+              {reports.map((report) => (
+                <div
+                  key={report.id}
+                  className="bg-card border border-border rounded-xl p-3 space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="font-semibold text-sm">
+                          {report.profiles?.display_name || 'ناشناس'}
+                        </span>
+                        <Badge variant="outline" className="text-xs py-0 h-5">
+                          {report.reason || 'other'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {report.questions?.stem_text || '-'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDate(report.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setSelectedReport(report)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(report.id)}
+                        disabled={isDeleting === report.id}
+                      >
+                        {isDeleting === report.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </CardContent>
         </Card>
       )}
 
       {/* Question Detail Dialog */}
       <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="w-full max-w-lg mx-2 sm:mx-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>جزئیات سوال گزارش شده</DialogTitle>
           </DialogHeader>

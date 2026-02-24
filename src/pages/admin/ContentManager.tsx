@@ -202,11 +202,12 @@ export default function ContentManager() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-foreground">مدیریت محتوا</h1>
-        <Button onClick={() => openCreateDialog('subject')} className="gap-2">
+      <div className="flex items-center justify-between mb-6 gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">مدیریت محتوا</h1>
+        <Button onClick={() => openCreateDialog('subject')} className="gap-2 shrink-0">
           <Plus className="h-4 w-4" />
-          افزودن درس
+          <span className="hidden sm:inline">افزودن درس</span>
+          <span className="sm:hidden">درس</span>
         </Button>
       </div>
 
@@ -227,27 +228,27 @@ export default function ContentManager() {
                 >
                   <AccordionTrigger className="hover:no-underline py-4">
                     <div className="flex items-center justify-between w-full ml-4">
-                      <div className="flex items-center gap-3">
-                        <BookOpen className="h-5 w-5 text-primary" />
-                        <span className="font-semibold">{subject.title}</span>
-                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                          {(topicsBySubject[subject.id] || []).length} تاپیک
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <BookOpen className="h-4 w-4 text-primary shrink-0" />
+                        <span className="font-semibold truncate">{subject.title}</span>
+                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+                          {(topicsBySubject[subject.id] || []).length}
                         </span>
                       </div>
-                      <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog('subject', subject)}>
-                          <Pencil className="h-4 w-4" />
+                      <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog('subject', subject)}>
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button 
                           variant="ghost" 
-                          size="icon" 
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
                           onClick={() => handleDelete('subject', subject.id)}
-                          className="text-destructive hover:text-destructive"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openCreateDialog('topic', subject.id)}>
-                          <Plus className="h-4 w-4 ml-1" />
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => openCreateDialog('topic', subject.id)}>
+                          <Plus className="h-3 w-3 ml-0.5" />
                           تاپیک
                         </Button>
                       </div>
@@ -266,28 +267,28 @@ export default function ContentManager() {
                           >
                             <AccordionTrigger className="hover:no-underline py-3">
                               <div className="flex items-center justify-between w-full ml-4">
-                                <div className="flex items-center gap-3">
-                                  <FolderTree className="h-4 w-4 text-muted-foreground" />
-                                  <span>{topic.title}</span>
-                                  <span className="text-xs text-muted-foreground bg-background px-2 py-0.5 rounded">
-                                    {(subtopicsByTopic[topic.id] || []).length} ساب‌تاپیک
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <FolderTree className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <span className="truncate text-sm">{topic.title}</span>
+                                  <span className="text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded shrink-0">
+                                    {(subtopicsByTopic[topic.id] || []).length}
                                   </span>
                                 </div>
-                                <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                                  <Button variant="ghost" size="icon" onClick={() => openEditDialog('topic', topic, subject.id)}>
+                                <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditDialog('topic', topic, subject.id)}>
                                     <Pencil className="h-3 w-3" />
                                   </Button>
                                   <Button 
                                     variant="ghost" 
                                     size="icon"
+                                    className="h-6 w-6 text-destructive hover:text-destructive"
                                     onClick={() => handleDelete('topic', topic.id)}
-                                    className="text-destructive hover:text-destructive"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => openCreateDialog('subtopic', topic.id)}>
-                                    <Plus className="h-3 w-3 ml-1" />
-                                    ساب‌تاپیک
+                                  <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => openCreateDialog('subtopic', topic.id)}>
+                                    <Plus className="h-2.5 w-2.5 ml-0.5" />
+                                    ساب
                                   </Button>
                                 </div>
                               </div>
@@ -306,7 +307,7 @@ export default function ContentManager() {
                                         <FileText className="h-4 w-4 text-muted-foreground" />
                                         <span className="text-sm">{subtopic.title}</span>
                                       </div>
-                                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="flex gap-1">
                                         <Button 
                                           variant="ghost" 
                                           size="icon" 

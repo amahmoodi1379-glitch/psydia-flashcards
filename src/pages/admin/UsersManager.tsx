@@ -158,25 +158,27 @@ export default function UsersManager() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-foreground">مدیریت کاربران</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">مدیریت کاربران</h1>
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>لیست کاربران ({totalCount.toLocaleString('fa-IR')} نفر)</CardTitle>
+              <CardTitle className="text-base md:text-lg">
+                لیست کاربران ({totalCount.toLocaleString('fa-IR')} نفر)
+              </CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
                 آخرین بروزرسانی آمار: {formatStatsRefreshTime(statsLastRefreshedAt)}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Input
-                placeholder="جستجو نام یا آیدی تلگرام..."
+                placeholder="جستجو نام یا آیدی..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="w-64"
+                className="flex-1 sm:w-56"
               />
               <Button variant="outline" size="icon" disabled>
                 <Search className="h-4 w-4" />
@@ -184,7 +186,7 @@ export default function UsersManager() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-6">
           {isLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -197,69 +199,121 @@ export default function UsersManager() {
                   در حال بروزرسانی...
                 </div>
               )}
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>نام نمایشی</TableHead>
-                    <TableHead>آیدی تلگرام</TableHead>
-                    <TableHead>نقش</TableHead>
-                    <TableHead>اشتراک</TableHead>
-                    <TableHead>انقضا</TableHead>
-                    <TableHead>تعداد پاسخ</TableHead>
-                    <TableHead>دقت</TableHead>
-                    <TableHead>عملیات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{user.display_name || '-'}</TableCell>
-                      <TableCell className="font-mono text-sm">{user.telegram_id || '-'}</TableCell>
-                      <TableCell>
-                        {user.is_admin && (
-                          <Badge className="bg-destructive/10 text-destructive">
-                            <Shield className="w-3 h-3 mr-1" />
-                            ادمین
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={PLAN_COLORS[user.subscription?.plan || 'free']}>
-                          {PLAN_LABELS[user.subscription?.plan || 'free']}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {user.subscription?.expires_at 
-                          ? new Date(user.subscription.expires_at).toLocaleDateString('fa-IR')
-                          : '-'
-                        }
-                      </TableCell>
-                      <TableCell>{user.attempt_count.toLocaleString('fa-IR')}</TableCell>
-                      <TableCell>{getAccuracy(user.correct_count, user.attempt_count)}</TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => handleEditClick(user)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {users.length === 0 && (
+
+              {/* Desktop Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                        {searchQuery ? 'هیچ کاربری با این مشخصات یافت نشد' : 'هیچ کاربری یافت نشد'}
-                      </TableCell>
+                      <TableHead>نام نمایشی</TableHead>
+                      <TableHead>آیدی تلگرام</TableHead>
+                      <TableHead>نقش</TableHead>
+                      <TableHead>اشتراک</TableHead>
+                      <TableHead>انقضا</TableHead>
+                      <TableHead>پاسخ</TableHead>
+                      <TableHead>دقت</TableHead>
+                      <TableHead>عملیات</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.display_name || '-'}</TableCell>
+                        <TableCell className="font-mono text-sm">{user.telegram_id || '-'}</TableCell>
+                        <TableCell>
+                          {user.is_admin && (
+                            <Badge className="bg-destructive/10 text-destructive">
+                              <Shield className="w-3 h-3 mr-1" />
+                              ادمین
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={PLAN_COLORS[user.subscription?.plan || 'free']}>
+                            {PLAN_LABELS[user.subscription?.plan || 'free']}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {user.subscription?.expires_at
+                            ? new Date(user.subscription.expires_at).toLocaleDateString('fa-IR')
+                            : '-'}
+                        </TableCell>
+                        <TableCell>{user.attempt_count.toLocaleString('fa-IR')}</TableCell>
+                        <TableCell>{getAccuracy(user.correct_count, user.attempt_count)}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {users.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          {searchQuery ? 'هیچ کاربری با این مشخصات یافت نشد' : 'هیچ کاربری یافت نشد'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card List */}
+              <div className="md:hidden space-y-2">
+                {users.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8 text-sm">
+                    {searchQuery ? 'هیچ کاربری با این مشخصات یافت نشد' : 'هیچ کاربری یافت نشد'}
+                  </p>
+                ) : (
+                  users.map((user) => (
+                    <div
+                      key={user.id}
+                      className="bg-card border border-border rounded-xl p-3 flex items-start justify-between gap-3"
+                    >
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm truncate">
+                            {user.display_name || 'بدون نام'}
+                          </span>
+                          {user.is_admin && (
+                            <Badge className="bg-destructive/10 text-destructive text-xs py-0 h-5">
+                              <Shield className="w-3 h-3 ml-0.5" />
+                              ادمین
+                            </Badge>
+                          )}
+                          <Badge className={`${PLAN_COLORS[user.subscription?.plan || 'free']} text-xs py-0 h-5`}>
+                            {PLAN_LABELS[user.subscription?.plan || 'free']}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {user.telegram_id || '-'}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                          <span>{user.attempt_count.toLocaleString('fa-IR')} پاسخ</span>
+                          <span>دقت: {getAccuracy(user.correct_count, user.attempt_count)}</span>
+                          {user.subscription?.expires_at && (
+                            <span>
+                              انقضا: {new Date(user.subscription.expires_at).toLocaleDateString('fa-IR')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditClick(user)}
+                        className="shrink-0 h-8 w-8 p-0"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6">
+                <div className="flex items-center justify-center gap-2 mt-4">
                   <Button
                     variant="outline"
                     size="sm"
@@ -269,8 +323,8 @@ export default function UsersManager() {
                     <ChevronRight className="h-4 w-4" />
                     قبلی
                   </Button>
-                  <span className="text-sm text-muted-foreground px-4">
-                    صفحه {currentPage.toLocaleString('fa-IR')} از {totalPages.toLocaleString('fa-IR')}
+                  <span className="text-sm text-muted-foreground">
+                    {currentPage.toLocaleString('fa-IR')} / {totalPages.toLocaleString('fa-IR')}
                   </span>
                   <Button
                     variant="outline"

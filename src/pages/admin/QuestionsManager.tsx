@@ -417,31 +417,35 @@ export default function QuestionsManager() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-foreground">مدیریت سوالات</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">مدیریت سوالات</h1>
         <div className="flex items-center gap-2">
-          <Button onClick={openBulkDialog} variant="outline" className="gap-2" disabled={subtopics.length === 0}>
+          <Button onClick={openBulkDialog} variant="outline" className="gap-2 flex-1 sm:flex-none" disabled={subtopics.length === 0}>
             <Upload className="h-4 w-4" />
-            وارد کردن دسته‌جمعی
+            <span className="hidden sm:inline">وارد دسته‌جمعی</span>
+            <span className="sm:hidden">وارد</span>
           </Button>
-          <Button onClick={openCreateDialog} className="gap-2" disabled={subtopics.length === 0}>
+          <Button onClick={openCreateDialog} className="gap-2 flex-1 sm:flex-none" disabled={subtopics.length === 0}>
             <Plus className="h-4 w-4" />
-            افزودن سوال
+            <span className="hidden sm:inline">افزودن سوال</span>
+            <span className="sm:hidden">سوال</span>
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>لیست سوالات ({totalCount.toLocaleString('fa-IR')} مورد)</CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="text-base md:text-lg">
+              لیست سوالات ({totalCount.toLocaleString('fa-IR')} مورد)
+            </CardTitle>
             <div className="flex items-center gap-2">
               <Input
                 placeholder="جستجو در متن سوال..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="w-64"
+                className="flex-1 sm:w-56"
               />
               <Button variant="outline" size="icon" onClick={handleSearch}>
                 <Search className="h-4 w-4" />
@@ -449,72 +453,125 @@ export default function QuestionsManager() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-6">
           {isLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>متن سوال</TableHead>
-                    <TableHead>ساب‌تاپیک</TableHead>
-                    <TableHead>وضعیت</TableHead>
-                    <TableHead className="w-[120px]">عملیات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {questions.map((question) => (
-                    <TableRow key={question.id}>
-                      <TableCell className="max-w-xs truncate">{question.stem_text}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {question.subtopics?.topics?.subjects?.title} → {question.subtopics?.topics?.title} → {question.subtopics?.title}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded text-xs ${question.is_active ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+              {/* Desktop Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>متن سوال</TableHead>
+                      <TableHead>ساب‌تاپیک</TableHead>
+                      <TableHead>وضعیت</TableHead>
+                      <TableHead className="w-[120px]">عملیات</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {questions.map((question) => (
+                      <TableRow key={question.id}>
+                        <TableCell className="max-w-xs truncate">{question.stem_text}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {question.subtopics?.topics?.subjects?.title} → {question.subtopics?.topics?.title} → {question.subtopics?.title}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded text-xs ${question.is_active ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                            {question.is_active ? 'فعال' : 'غیرفعال'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleActive(question.id, question.is_active)}
+                              title={question.is_active ? 'غیرفعال کردن' : 'فعال کردن'}
+                            >
+                              {question.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(question)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(question.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {questions.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                          هیچ سوالی یافت نشد
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card List */}
+              <div className="md:hidden space-y-2">
+                {questions.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8 text-sm">هیچ سوالی یافت نشد</p>
+                ) : (
+                  questions.map((question) => (
+                    <div
+                      key={question.id}
+                      className="bg-card border border-border rounded-xl p-3 flex items-start justify-between gap-2"
+                    >
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-sm font-medium line-clamp-2">{question.stem_text}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {question.subtopics?.topics?.subjects?.title} » {question.subtopics?.topics?.title} » {question.subtopics?.title}
+                        </p>
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs ${question.is_active ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
                           {question.is_active ? 'فعال' : 'غیرفعال'}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleActive(question.id, question.is_active)}
-                            title={question.is_active ? 'غیرفعال کردن' : 'فعال کردن'}
-                          >
-                            {question.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(question)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(question.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {questions.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                        هیچ سوالی یافت نشد
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => toggleActive(question.id, question.is_active)}
+                        >
+                          {question.is_active ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => openEditDialog(question)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(question.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6">
+                <div className="flex items-center justify-center gap-2 mt-4">
                   <Button
                     variant="outline"
                     size="sm"
@@ -524,8 +581,8 @@ export default function QuestionsManager() {
                     <ChevronRight className="h-4 w-4" />
                     قبلی
                   </Button>
-                  <span className="text-sm text-muted-foreground px-4">
-                    صفحه {currentPage.toLocaleString('fa-IR')} از {totalPages.toLocaleString('fa-IR')}
+                  <span className="text-sm text-muted-foreground">
+                    {currentPage.toLocaleString('fa-IR')} / {totalPages.toLocaleString('fa-IR')}
                   </span>
                   <Button
                     variant="outline"
@@ -544,7 +601,7 @@ export default function QuestionsManager() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent dir="rtl" className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent dir="rtl" className="w-full max-w-2xl max-h-[92vh] overflow-y-auto mx-2 sm:mx-auto">
           <DialogHeader>
             <DialogTitle>{editingQuestion ? 'ویرایش سوال' : 'افزودن سوال جدید'}</DialogTitle>
           </DialogHeader>
@@ -635,7 +692,7 @@ export default function QuestionsManager() {
       </Dialog>
       {/* Bulk Import Dialog */}
       <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
-        <DialogContent dir="rtl" className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent dir="rtl" className="w-full max-w-3xl max-h-[92vh] overflow-y-auto mx-2 sm:mx-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5 text-primary" />
