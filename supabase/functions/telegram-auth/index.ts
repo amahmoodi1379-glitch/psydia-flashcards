@@ -119,7 +119,7 @@ serve(async (req) => {
     }
 
     // 1. Validate initData signature
-    if (!validateInitData(initData, BOT_TOKEN)) {
+    if (!(await validateInitData(initData, BOT_TOKEN))) {
       return new Response(
         JSON.stringify({ error: "Invalid initData signature" }),
         { status: 401, headers: jsonHeaders },
@@ -212,14 +212,30 @@ serve(async (req) => {
         .eq("id", createData.user.id);
     } else {
       // 6. Existing user — update profile with latest Telegram info
+      //    But preserve custom avatar if user chose one via AvatarSelector
+      //    (custom avatars are stored as numeric index strings like "0", "3", etc.)
       if (session?.user) {
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", session.user.id)
+          .single();
+
+        const hasCustomAvatar = existingProfile?.avatar_url != null
+          && /^\d+$/.test(existingProfile.avatar_url);
+
+        const profileUpdate: Record<string, string> = {
+          telegram_id: telegramId,
+          display_name: displayName,
+        };
+
+        if (!hasCustomAvatar) {
+          profileUpdate.avatar_url = tgUser.photo_url || "";
+        }
+
         await supabase
           .from("profiles")
-          .update({
-            telegram_id: telegramId,
-            display_name: displayName,
-            avatar_url: tgUser.photo_url || null,
-          })
+          .update(profileUpdate)
           .eq("id", session.user.id);
       }
     }
