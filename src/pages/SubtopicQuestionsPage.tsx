@@ -97,9 +97,11 @@ export default function SubtopicQuestionsPage() {
     const requestId = answerRequestIdsRef.current.get(questionId) ?? crypto.randomUUID();
     answerRequestIdsRef.current.set(questionId, requestId);
 
-    // Map shuffled index back to original
+    // Map shuffled index back to original (-1 means "don't know")
     const shuffle = shuffledData.get(questionId);
-    const originalSelectedIndex = shuffle ? shuffle.indexMap[selectedShuffledIndex] : selectedShuffledIndex;
+    const originalSelectedIndex = selectedShuffledIndex === -1
+      ? -1
+      : (shuffle ? shuffle.indexMap[selectedShuffledIndex] : selectedShuffledIndex);
 
     try {
       const result = await recordAnswer(questionId, originalSelectedIndex, correct, {

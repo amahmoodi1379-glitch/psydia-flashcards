@@ -74,9 +74,11 @@ export default function ReviewPage() {
     const requestId = existingRequestId ?? crypto.randomUUID();
     answerRequestIdsRef.current.set(currentQuestion.id, requestId);
 
-    // Map shuffled index back to original
+    // Map shuffled index back to original (-1 means "don't know")
     const shuffle = shuffledData.get(currentQuestion.id);
-    const originalSelectedIndex = shuffle ? shuffle.indexMap[selectedShuffledIndex] : selectedShuffledIndex;
+    const originalSelectedIndex = selectedShuffledIndex === -1
+      ? -1
+      : (shuffle ? shuffle.indexMap[selectedShuffledIndex] : selectedShuffledIndex);
 
     try {
       const result = await recordAnswer(currentQuestion.id, originalSelectedIndex, correct, {
@@ -140,6 +142,11 @@ export default function ReviewPage() {
   };
 
   const handleGoBack = () => {
+    if (answeredQuestions.size > 0 && !isComplete && currentIndex < totalQuestions - 1) {
+      if (!confirm("جلسه مرور هنوز تمام نشده. آیا مطمئنید می‌خواهید خارج شوید؟")) {
+        return;
+      }
+    }
     navigate("/");
   };
 

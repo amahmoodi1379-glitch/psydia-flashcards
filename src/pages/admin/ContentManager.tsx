@@ -167,7 +167,12 @@ export default function ContentManager() {
 
   const handleDelete = async (type: EditType, id: string) => {
     const typeLabels = { subject: 'درس', topic: 'تاپیک', subtopic: 'ساب‌تاپیک' };
-    if (!confirm(`آیا از حذف این ${typeLabels[type]} اطمینان دارید؟`)) return;
+    const cascadeWarnings: Record<EditType, string> = {
+      subject: 'با حذف این درس، تمام تاپیک‌ها، ساب‌تاپیک‌ها و سوالات زیرمجموعه آن نیز حذف خواهند شد.',
+      topic: 'با حذف این تاپیک، تمام ساب‌تاپیک‌ها و سوالات زیرمجموعه آن نیز حذف خواهند شد.',
+      subtopic: 'با حذف این ساب‌تاپیک، تمام سوالات آن نیز حذف خواهند شد.',
+    };
+    if (!confirm(`${cascadeWarnings[type]}\n\nآیا از حذف این ${typeLabels[type]} اطمینان دارید؟`)) return;
 
     const table = type === 'subject' ? 'subjects' : type === 'topic' ? 'topics' : 'subtopics';
     const { error } = await supabase.from(table).delete().eq('id', id);
