@@ -65,7 +65,7 @@ export function HierarchicalMasteryMap() {
     setBreadcrumbs([{ id: subject.id, name: subject.name, level: "subjects" }]);
   };
 
-  const handleTopicClick = (topic: typeof selectedSubject.topics[0]) => {
+  const handleTopicClick = (topic: NonNullable<typeof selectedSubject>["topics"][0]) => {
     setSelectedTopicId(topic.id);
     setCurrentLevel("subtopics");
     setBreadcrumbs((prev) => [

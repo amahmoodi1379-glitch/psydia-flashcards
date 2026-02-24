@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Trophy, Star, Flag, Lock } from "lucide-react";
+import { ArrowRight, Trophy, Star, Flag, Lock, Box } from "lucide-react";
 import { cn, toPersianNumber, shuffleChoices } from "@/lib/utils";
 import { useLeitnerReview } from "@/hooks/useLeitnerReview";
 import { useReviewQuestions, ReviewFilter } from "@/hooks/useReviewQuestions";
@@ -13,6 +13,7 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
 import { ReviewPageSkeleton } from "@/components/skeleton/ReviewPageSkeleton";
 import { useReportQuestion } from "@/hooks/useReportQuestion";
+import { useLeitnerToggle } from "@/hooks/useLeitnerToggle";
 import { toast } from "sonner";
 
 export default function ReviewPage() {
@@ -27,7 +28,7 @@ export default function ReviewPage() {
 
   // Fetch questions based on mode
   const leitnerResult = useLeitnerReview(20);
-  const specialResult = useReviewQuestions(20, stateFilter ?? { type: "daily" }, isSpecialFilter);
+  const specialResult = useReviewQuestions(20, stateFilter ?? { type: "bookmarks" }, isSpecialFilter);
 
   const questions = isSpecialFilter ? specialResult.questions : leitnerResult.questions;
   const isLoading = isSpecialFilter ? specialResult.isLoading : leitnerResult.isLoading;
@@ -37,6 +38,7 @@ export default function ReviewPage() {
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
   const { hasFeature, refetch: refetchSubscription } = useSubscription();
   const { reportQuestion, isReporting } = useReportQuestion();
+  const { toggleLeitner, isToggling } = useLeitnerToggle();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasAnswered, setHasAnswered] = useState(false);
@@ -49,6 +51,7 @@ export default function ReviewPage() {
     explanation?: string;
   } | undefined>();
   const answerRequestIdsRef = useRef<Map<string, string>>(new Map());
+  const [leitnerState, setLeitnerState] = useState<Map<string, boolean>>(new Map());
 
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
@@ -98,6 +101,8 @@ export default function ReviewPage() {
       }
 
       setAnsweredQuestions((prev) => new Set(prev).add(currentQuestion.id));
+      // record_answer creates/updates user_question_state, so question is now in Leitner
+      setLeitnerState((prev) => new Map(prev).set(currentQuestion.id, true));
       await Promise.all([
         refetchSubscription(),
         queryClient.invalidateQueries({ queryKey: ["leitner-due-count"] }),
@@ -111,6 +116,16 @@ export default function ReviewPage() {
 
       setHasAnswered(false);
       setAnswerResult(undefined);
+    }
+  };
+
+  const handleToggleLeitner = async () => {
+    if (!currentQuestion) return;
+    try {
+      const result = await toggleLeitner(currentQuestion.id);
+      setLeitnerState((prev) => new Map(prev).set(currentQuestion.id, result.is_in_leitner));
+    } catch {
+      // Error toast handled by hook
     }
   };
 
@@ -268,9 +283,29 @@ export default function ReviewPage() {
           )}
         </div>
 
-        {/* Next Button - Only visible after answering */}
+        {/* Leitner Toggle + Next Button - Only visible after answering */}
         {hasAnswered && (
-          <div className="px-4 pb-6 animate-slide-up">
+          <div className="px-4 pb-6 animate-slide-up space-y-3">
+            {currentQuestion && (() => {
+              const isInLeitner = leitnerState.get(currentQuestion.id) ?? true;
+              return (
+                <button
+                  onClick={handleToggleLeitner}
+                  disabled={isToggling}
+                  className={cn(
+                    "w-full p-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2",
+                    isInLeitner
+                      ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                      : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/50 hover:text-primary"
+                  )}
+                >
+                  <Box className="w-5 h-5" />
+                  <span className="font-medium text-sm">
+                    {isInLeitner ? "در لایتنر است (حذف)" : "افزودن به لایتنر"}
+                  </span>
+                </button>
+              );
+            })()}
             <Button
               variant="hero"
               size="lg"

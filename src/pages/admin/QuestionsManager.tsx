@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Pencil, Trash2, Loader2, Eye, EyeOff, Search, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Eye, EyeOff, Search, ChevronRight, ChevronLeft, Upload, Copy, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Question {
@@ -50,6 +50,15 @@ export default function QuestionsManager() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [lastUsedSubtopicId, setLastUsedSubtopicId] = useState('');
+
+  // Bulk import state
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [bulkSubtopicId, setBulkSubtopicId] = useState('');
+  const [bulkJsonText, setBulkJsonText] = useState('');
+  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+  const [bulkIsImporting, setBulkIsImporting] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ success: number; failed: number } | null>(null);
+  const [schemaCopied, setSchemaCopied] = useState(false);
 
   const fetchQuestions = async (page: number, search: string) => {
     setIsLoading(true);
@@ -148,8 +157,20 @@ export default function QuestionsManager() {
       return;
     }
 
-    if (formData.correct_index < 0 || formData.correct_index >= validChoices.length) {
+    if (formData.correct_index < 0 || formData.correct_index >= formData.choices.length) {
       toast.error('لطفاً گزینه صحیح را انتخاب کنید');
+      return;
+    }
+
+    // Remap correct_index from original 4-choice array to filtered valid-choices array
+    const selectedChoiceText = formData.choices[formData.correct_index];
+    if (!selectedChoiceText?.trim()) {
+      toast.error('گزینه صحیح انتخاب‌شده خالی است');
+      return;
+    }
+    const remappedCorrectIndex = validChoices.indexOf(selectedChoiceText);
+    if (remappedCorrectIndex < 0) {
+      toast.error('خطا در تطبیق گزینه صحیح');
       return;
     }
 
@@ -160,7 +181,7 @@ export default function QuestionsManager() {
         stem_text: formData.stem_text,
         subtopic_id: formData.subtopic_id,
         choices: validChoices,
-        correct_index: formData.correct_index,
+        correct_index: remappedCorrectIndex,
         explanation: formData.explanation || null,
       };
 
@@ -213,6 +234,173 @@ export default function QuestionsManager() {
     }
   };
 
+  // --- Bulk Import Logic ---
+  const BULK_JSON_SCHEMA = `[
+  {
+    "stem_text": "متن سوال",
+    "choices": ["گزینه ۱", "گزینه ۲", "گزینه ۳", "گزینه ۴"],
+    "correct_index": 0,
+    "explanation": "توضیح پاسخ (اختیاری، می‌تواند null باشد)"
+  }
+]`;
+
+  const BULK_SCHEMA_DESCRIPTION = `فیلدهای هر سوال:
+• stem_text (string, الزامی): متن سوال
+• choices (string[], الزامی): آرایه گزینه‌ها (حداقل ۲، حداکثر ۶)
+• correct_index (number, الزامی): ایندکس گزینه صحیح (از ۰ شروع می‌شود)
+• explanation (string | null, اختیاری): توضیح پاسخ صحیح`;
+
+  interface BulkQuestionItem {
+    stem_text: string;
+    choices: string[];
+    correct_index: number;
+    explanation?: string | null;
+  }
+
+  const validateBulkJson = (text: string): { items: BulkQuestionItem[]; errors: string[] } => {
+    const errors: string[] = [];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      return { items: [], errors: [`خطای JSON: ${e instanceof Error ? e.message : 'فرمت نامعتبر'}`] };
+    }
+
+    if (!Array.isArray(parsed)) {
+      return { items: [], errors: ['ورودی باید یک آرایه JSON باشد (با [ شروع و با ] پایان یابد)'] };
+    }
+
+    if (parsed.length === 0) {
+      return { items: [], errors: ['آرایه خالی است — حداقل یک سوال وارد کنید'] };
+    }
+
+    const validItems: BulkQuestionItem[] = [];
+
+    parsed.forEach((item: unknown, index: number) => {
+      const prefix = `سوال ${index + 1}`;
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        errors.push(`${prefix}: باید یک آبجکت باشد`);
+        return;
+      }
+
+      const q = item as Record<string, unknown>;
+
+      // stem_text
+      if (typeof q.stem_text !== 'string' || !q.stem_text.trim()) {
+        errors.push(`${prefix}: فیلد stem_text الزامی و باید رشته غیرخالی باشد`);
+        return;
+      }
+
+      // choices
+      if (!Array.isArray(q.choices)) {
+        errors.push(`${prefix}: فیلد choices باید آرایه باشد`);
+        return;
+      }
+      const validChoices = q.choices.filter((c: unknown) => typeof c === 'string' && c.trim());
+      if (validChoices.length < 2) {
+        errors.push(`${prefix}: حداقل ۲ گزینه غیرخالی الزامی است (${validChoices.length} گزینه معتبر)`);
+        return;
+      }
+      if (validChoices.length > 6) {
+        errors.push(`${prefix}: حداکثر ۶ گزینه مجاز است`);
+        return;
+      }
+
+      // correct_index
+      if (typeof q.correct_index !== 'number' || !Number.isInteger(q.correct_index)) {
+        errors.push(`${prefix}: فیلد correct_index باید عدد صحیح باشد`);
+        return;
+      }
+      if (q.correct_index < 0 || q.correct_index >= validChoices.length) {
+        errors.push(`${prefix}: correct_index (${q.correct_index}) خارج از محدوده گزینه‌ها (۰ تا ${validChoices.length - 1})`);
+        return;
+      }
+
+      // explanation
+      const explanation = q.explanation === undefined || q.explanation === null
+        ? null
+        : typeof q.explanation === 'string'
+          ? q.explanation
+          : null;
+
+      validItems.push({
+        stem_text: q.stem_text.trim(),
+        choices: validChoices as string[],
+        correct_index: q.correct_index,
+        explanation,
+      });
+    });
+
+    return { items: validItems, errors };
+  };
+
+  const handleBulkImport = async () => {
+    if (!bulkSubtopicId) {
+      setBulkErrors(['لطفاً ابتدا ساب‌تاپیک را انتخاب کنید']);
+      return;
+    }
+
+    const { items, errors } = validateBulkJson(bulkJsonText);
+    setBulkErrors(errors);
+
+    if (items.length === 0) {
+      if (errors.length === 0) setBulkErrors(['هیچ سوال معتبری یافت نشد']);
+      return;
+    }
+
+    setBulkIsImporting(true);
+    setBulkResult(null);
+
+    try {
+      const payload = items.map((item) => ({
+        stem_text: item.stem_text,
+        choices: item.choices,
+        correct_index: item.correct_index,
+        explanation: item.explanation || null,
+        subtopic_id: bulkSubtopicId,
+      }));
+
+      const { error } = await supabase.from('questions').insert(payload);
+
+      if (error) throw error;
+
+      const successCount = items.length;
+      const failedCount = errors.length;
+      setBulkResult({ success: successCount, failed: failedCount });
+      toast.success(`${successCount} سوال با موفقیت وارد شد`);
+
+      // Clear textarea after success
+      setBulkJsonText('');
+      fetchQuestions(currentPage, searchQuery);
+    } catch (error) {
+      console.error('Bulk import error:', error);
+      toast.error('خطا در وارد کردن سوالات');
+      setBulkErrors((prev) => [...prev, `خطای سرور: ${error instanceof Error ? error.message : 'ناشناخته'}`]);
+    } finally {
+      setBulkIsImporting(false);
+    }
+  };
+
+  const handleCopySchema = async () => {
+    try {
+      await navigator.clipboard.writeText(BULK_JSON_SCHEMA);
+      setSchemaCopied(true);
+      setTimeout(() => setSchemaCopied(false), 2000);
+      toast.success('اسکیما کپی شد');
+    } catch {
+      toast.error('خطا در کپی');
+    }
+  };
+
+  const openBulkDialog = () => {
+    setBulkSubtopicId(lastUsedSubtopicId);
+    setBulkJsonText('');
+    setBulkErrors([]);
+    setBulkResult(null);
+    setIsBulkDialogOpen(true);
+  };
+
   const toggleActive = async (id: string, currentStatus: boolean) => {
     const { error } = await supabase
       .from('questions')
@@ -231,10 +419,16 @@ export default function QuestionsManager() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-foreground">مدیریت سوالات</h1>
-        <Button onClick={openCreateDialog} className="gap-2" disabled={subtopics.length === 0}>
-          <Plus className="h-4 w-4" />
-          افزودن سوال
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={openBulkDialog} variant="outline" className="gap-2" disabled={subtopics.length === 0}>
+            <Upload className="h-4 w-4" />
+            وارد کردن دسته‌جمعی
+          </Button>
+          <Button onClick={openCreateDialog} className="gap-2" disabled={subtopics.length === 0}>
+            <Plus className="h-4 w-4" />
+            افزودن سوال
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -435,6 +629,121 @@ export default function QuestionsManager() {
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
               {editingQuestion ? 'ذخیره تغییرات' : 'افزودن سوال'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Bulk Import Dialog */}
+      <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+        <DialogContent dir="rtl" className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5 text-primary" />
+              وارد کردن دسته‌جمعی سوالات (JSON)
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Subtopic Selector */}
+            <div className="space-y-2">
+              <Label>
+                ساب‌تاپیک مقصد <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={bulkSubtopicId}
+                onValueChange={(value) => setBulkSubtopicId(value)}
+              >
+                <SelectTrigger className={!bulkSubtopicId ? 'border-destructive' : ''}>
+                  <SelectValue placeholder="انتخاب ساب‌تاپیک (همه سوالات به این ساب‌تاپیک اضافه می‌شوند)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subtopics.map((subtopic) => (
+                    <SelectItem key={subtopic.id} value={subtopic.id}>
+                      {subtopic.topics?.subjects?.title} → {subtopic.topics?.title} → {subtopic.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* JSON Schema Display */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">اسکیمای JSON مجاز</Label>
+                <Button variant="ghost" size="sm" className="gap-1.5 h-7 text-xs" onClick={handleCopySchema}>
+                  {schemaCopied ? (
+                    <><CheckCircle2 className="h-3 w-3 text-success" /> کپی شد</>
+                  ) : (
+                    <><Copy className="h-3 w-3" /> کپی اسکیما</>
+                  )}
+                </Button>
+              </div>
+              <pre className="bg-muted/50 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre" dir="ltr">
+                {BULK_JSON_SCHEMA}
+              </pre>
+              <p className="text-xs text-muted-foreground whitespace-pre-line">{BULK_SCHEMA_DESCRIPTION}</p>
+            </div>
+
+            {/* JSON Input */}
+            <div className="space-y-2">
+              <Label>ورودی JSON</Label>
+              <Textarea
+                value={bulkJsonText}
+                onChange={(e) => {
+                  setBulkJsonText(e.target.value);
+                  setBulkErrors([]);
+                  setBulkResult(null);
+                }}
+                placeholder={`[\n  {\n    "stem_text": "...",\n    "choices": ["...", "...", "...", "..."],\n    "correct_index": 0,\n    "explanation": null\n  }\n]`}
+                rows={12}
+                className="font-mono text-sm"
+                dir="ltr"
+              />
+            </div>
+
+            {/* Validation Errors */}
+            {bulkErrors.length > 0 && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-sm font-medium text-destructive">
+                    {bulkErrors.length} خطا یافت شد
+                  </span>
+                </div>
+                <ul className="space-y-1">
+                  {bulkErrors.map((err, i) => (
+                    <li key={i} className="text-xs text-destructive">
+                      • {err}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Success Result */}
+            {bulkResult && (
+              <div className="bg-success/10 border border-success/30 rounded-lg p-3 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-success" />
+                <span className="text-sm text-success font-medium">
+                  {bulkResult.success} سوال با موفقیت وارد شد
+                  {bulkResult.failed > 0 && ` (${bulkResult.failed} خطا)`}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
+              بستن
+            </Button>
+            <Button
+              onClick={handleBulkImport}
+              disabled={bulkIsImporting || !bulkJsonText.trim() || !bulkSubtopicId}
+              className="gap-2"
+            >
+              {bulkIsImporting && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Upload className="h-4 w-4" />
+              وارد کردن سوالات
             </Button>
           </DialogFooter>
         </DialogContent>

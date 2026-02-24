@@ -23,16 +23,6 @@ export function DailyReviewSkeleton() {
         </div>
       </div>
 
-      {/* Session size skeleton */}
-      <div className="mb-4">
-        <Skeleton className="h-3 w-20 mb-2" />
-        <div className="flex gap-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="flex-1 h-10 rounded-xl" />
-          ))}
-        </div>
-      </div>
-
       <Skeleton className="h-12 w-full rounded-xl" />
     </div>
   );

@@ -58,7 +58,7 @@ export function useProfileStats() {
       };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
-    enabled: true,
+    enabled: !!user,
   });
 
   return {

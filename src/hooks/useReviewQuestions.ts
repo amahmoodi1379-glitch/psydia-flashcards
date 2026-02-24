@@ -9,7 +9,7 @@ export interface Question {
 }
 
 export interface ReviewFilter {
-  type: "daily" | "subject" | "topic" | "subtopic" | "bookmarks" | "frequently_wrong";
+  type: "subject" | "topic" | "subtopic" | "bookmarks" | "frequently_wrong";
   id?: string;
 }
 
@@ -33,7 +33,7 @@ type ReviewQuestionRow = {
 async function fetchReviewQuestionsRpc(limit: number, filter?: ReviewFilter): Promise<ReviewQuestionRow[]> {
   const { data, error } = await supabase.rpc("get_review_questions", {
     _limit: limit,
-    _filter_type: filter?.type ?? "daily",
+    _filter_type: filter?.type ?? "bookmarks",
     _filter_id: filter?.id ?? null,
   });
 
@@ -46,7 +46,7 @@ async function fetchReviewQuestionsRpc(limit: number, filter?: ReviewFilter): Pr
 
 export function useReviewQuestions(
   limit: number = 10,
-  filter: ReviewFilter = { type: "daily" },
+  filter: ReviewFilter = { type: "bookmarks" },
   enabled: boolean = true
 ): ReviewQuestionsResult {
   const [questions, setQuestions] = useState<Question[]>([]);
