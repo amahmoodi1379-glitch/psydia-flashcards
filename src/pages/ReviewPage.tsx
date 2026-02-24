@@ -103,8 +103,12 @@ export default function ReviewPage() {
       }
 
       setAnsweredQuestions((prev) => new Set(prev).add(currentQuestion.id));
-      // record_answer creates/updates user_question_state, so question is now in Leitner
-      setLeitnerState((prev) => new Map(prev).set(currentQuestion.id, true));
+      // record_answer only updates Leitner state if already in deck.
+      // For Leitner review mode questions are already in deck, so keep true.
+      // For special filters (bookmarks/frequently_wrong) don't assume in Leitner.
+      if (!isSpecialFilter) {
+        setLeitnerState((prev) => new Map(prev).set(currentQuestion.id, true));
+      }
       await Promise.all([
         refetchSubscription(),
         queryClient.invalidateQueries({ queryKey: ["leitner-due-count"] }),
@@ -294,7 +298,7 @@ export default function ReviewPage() {
         {hasAnswered && (
           <div className="px-4 pb-6 animate-slide-up space-y-3">
             {currentQuestion && (() => {
-              const isInLeitner = leitnerState.get(currentQuestion.id) ?? true;
+              const isInLeitner = leitnerState.get(currentQuestion.id) ?? !isSpecialFilter;
               return (
                 <button
                   onClick={handleToggleLeitner}

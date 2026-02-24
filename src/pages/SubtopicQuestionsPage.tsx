@@ -122,9 +122,8 @@ export default function SubtopicQuestionsPage() {
         })
       );
 
-      // record_answer always creates/updates user_question_state,
-      // so first post-answer UI state must reflect that the question is already in Leitner.
-      setLeitnerMap((prev) => new Map(prev).set(questionId, true));
+      // record_answer no longer auto-adds to Leitner.
+      // Keep existing leitner state (if already in Leitner, it was updated server-side).
 
       // When viewing only unanswered questions, refetch so answered ones disappear
       if (onlyUnanswered) {
