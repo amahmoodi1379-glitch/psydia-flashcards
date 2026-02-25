@@ -545,6 +545,68 @@ export type Database = {
           },
         ]
       }
+      daily_quiz_questions: {
+        Row: {
+          id: string
+          quiz_date: string
+          question_id: string
+          display_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          quiz_date?: string
+          question_id: string
+          display_order: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          quiz_date?: string
+          question_id?: string
+          display_order?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_quiz_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_quiz_attempts: {
+        Row: {
+          id: string
+          user_id: string
+          quiz_date: string
+          correct_count: number
+          total_count: number
+          completed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          quiz_date?: string
+          correct_count?: number
+          total_count?: number
+          completed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          quiz_date?: string
+          correct_count?: number
+          total_count?: number
+          completed_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       questions_safe: {
@@ -829,6 +891,33 @@ export type Database = {
       toggle_admin_role: {
         Args: { _make_admin: boolean; _target_user_id: string }
         Returns: boolean
+      }
+      get_or_create_daily_quiz: {
+        Args: Record<string, never>
+        Returns: {
+          question_id: string
+          stem_text: string
+          choices: Json
+          display_order: number
+        }[]
+      }
+      submit_daily_quiz: {
+        Args: { _correct_count: number; _total_count?: number }
+        Returns: {
+          percentile: number
+          total_participants: number
+          user_correct: number
+        }[]
+      }
+      get_daily_quiz_stats: {
+        Args: Record<string, never>
+        Returns: {
+          has_completed: boolean
+          correct_count: number
+          total_count: number
+          percentile: number
+          total_participants: number
+        }[]
       }
     }
     Enums: {

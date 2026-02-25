@@ -36,6 +36,7 @@ export default function DailyQuizPage() {
     stats,
     isLoadingStats,
     isRefreshingStats,
+    statsError,
     submitQuiz,
     isSubmitting,
     submitResult,
@@ -155,6 +156,11 @@ export default function DailyQuizPage() {
   // When page first mounts and stats are refreshing (stale cache), wait for fresh data
   // so we get the true has_completed value. Once quiz is started, don't block on refreshes.
   const waitingForFreshStats = !quizStartedRef.current && isRefreshingStats && !stats?.has_completed;
+  console.log("[DailyQuiz Page] Gate check:", {
+    isLoadingQuestions, isLoadingStats, isRefreshingStats, waitingForFreshStats,
+    statsHasCompleted: stats?.has_completed, statsError: !!statsError,
+    isComplete, quizStarted: quizStartedRef.current,
+  });
   if (isLoadingQuestions || isLoadingStats || waitingForFreshStats) {
     return (
       <AppLayout hideNav>
@@ -172,7 +178,7 @@ export default function DailyQuizPage() {
   }
 
   // ─── GATE 2: Already completed today (from server) ───
-  if (stats?.has_completed && !isComplete) {
+  if (stats?.has_completed) {
     return (
       <AppLayout hideNav>
         <div className="min-h-screen flex flex-col">
@@ -190,11 +196,11 @@ export default function DailyQuizPage() {
   }
 
   // ─── GATE 3: Error / no questions ───
-  if (questionsError || questions.length === 0) {
+  if (statsError || questionsError || questions.length === 0) {
     return (
       <AppLayout hideNav>
         <div className="min-h-screen flex flex-col items-center justify-center p-6">
-          <p className="text-destructive mb-4">{questionsError || "سوالی برای آزمون روز یافت نشد"}</p>
+          <p className="text-destructive mb-4">{questionsError || (statsError ? "خطا در بارگذاری آمار آزمون روز" : "سوالی برای آزمون روز یافت نشد")}</p>
           <Button variant="outline" onClick={handleGoBack}>بازگشت</Button>
         </div>
       </AppLayout>
