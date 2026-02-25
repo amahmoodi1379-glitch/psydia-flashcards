@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus, Pencil, Trash2, Loader2, Eye, EyeOff, Search, ChevronRight, ChevronLeft, Upload, Copy, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { HierarchicalSubtopicPicker } from '@/components/admin/HierarchicalSubtopicPicker';
 
 interface Question {
   id: string;
@@ -27,7 +28,19 @@ interface Question {
 interface Subtopic {
   id: string;
   title: string;
+  topic_id: string;
   topics?: { title: string; subjects?: { title: string } };
+}
+
+interface HierarchySubject {
+  id: string;
+  title: string;
+}
+
+interface HierarchyTopic {
+  id: string;
+  title: string;
+  subject_id: string;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -35,6 +48,8 @@ const ITEMS_PER_PAGE = 20;
 export default function QuestionsManager() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
+  const [hierarchySubjects, setHierarchySubjects] = useState<HierarchySubject[]>([]);
+  const [hierarchyTopics, setHierarchyTopics] = useState<HierarchyTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
@@ -87,14 +102,15 @@ export default function QuestionsManager() {
   };
 
   const fetchSubtopics = async () => {
-    const { data, error } = await supabase
-      .from('subtopics')
-      .select('id, title, topics(title, subjects(title))')
-      .order('display_order');
+    const [subtopicsRes, subjectsRes, topicsRes] = await Promise.all([
+      supabase.from('subtopics').select('id, title, topic_id, topics(title, subjects(title))').order('display_order'),
+      supabase.from('subjects').select('id, title').order('display_order'),
+      supabase.from('topics').select('id, title, subject_id').order('display_order'),
+    ]);
 
-    if (!error) {
-      setSubtopics(data || []);
-    }
+    if (!subtopicsRes.error) setSubtopics(subtopicsRes.data || []);
+    if (!subjectsRes.error) setHierarchySubjects(subjectsRes.data || []);
+    if (!topicsRes.error) setHierarchyTopics(topicsRes.data || []);
   };
 
   useEffect(() => {
@@ -606,26 +622,16 @@ export default function QuestionsManager() {
             <DialogTitle>{editingQuestion ? 'ویرایش سوال' : 'افزودن سوال جدید'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="subtopic">
-                ساب‌تاپیک <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={formData.subtopic_id}
-                onValueChange={(value) => setFormData({ ...formData, subtopic_id: value })}
-              >
-                <SelectTrigger className={!formData.subtopic_id ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="انتخاب ساب‌تاپیک (الزامی)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subtopics.map((subtopic) => (
-                    <SelectItem key={subtopic.id} value={subtopic.id}>
-                      {subtopic.topics?.subjects?.title} → {subtopic.topics?.title} → {subtopic.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <HierarchicalSubtopicPicker
+              subjects={hierarchySubjects}
+              topics={hierarchyTopics}
+              subtopics={subtopics}
+              value={formData.subtopic_id}
+              onValueChange={(val) => setFormData({ ...formData, subtopic_id: val })}
+              label="ساب‌تاپیک"
+              required
+              placeholder="انتخاب ساب‌تاپیک (الزامی)"
+            />
             
             <div className="space-y-2">
               <Label htmlFor="stem">متن سوال</Label>
@@ -702,26 +708,16 @@ export default function QuestionsManager() {
 
           <div className="space-y-4 py-4">
             {/* Subtopic Selector */}
-            <div className="space-y-2">
-              <Label>
-                ساب‌تاپیک مقصد <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={bulkSubtopicId}
-                onValueChange={(value) => setBulkSubtopicId(value)}
-              >
-                <SelectTrigger className={!bulkSubtopicId ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="انتخاب ساب‌تاپیک (همه سوالات به این ساب‌تاپیک اضافه می‌شوند)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subtopics.map((subtopic) => (
-                    <SelectItem key={subtopic.id} value={subtopic.id}>
-                      {subtopic.topics?.subjects?.title} → {subtopic.topics?.title} → {subtopic.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <HierarchicalSubtopicPicker
+              subjects={hierarchySubjects}
+              topics={hierarchyTopics}
+              subtopics={subtopics}
+              value={bulkSubtopicId}
+              onValueChange={(val) => setBulkSubtopicId(val)}
+              label="ساب‌تاپیک مقصد"
+              required
+              placeholder="انتخاب ساب‌تاپیک"
+            />
 
             {/* JSON Schema Display */}
             <div className="space-y-2">

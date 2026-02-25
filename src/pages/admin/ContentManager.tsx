@@ -226,16 +226,16 @@ export default function ContentManager() {
                   value={subject.id}
                   className="border border-border rounded-lg px-4"
                 >
-                  <AccordionTrigger className="hover:no-underline py-4">
-                    <div className="flex items-center justify-between w-full ml-4">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <AccordionTrigger className="hover:no-underline py-3 sm:py-4">
+                    <div className="flex items-center justify-between w-full ml-2 sm:ml-4 gap-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
                         <BookOpen className="h-4 w-4 text-primary shrink-0" />
-                        <span className="font-semibold truncate">{subject.title}</span>
+                        <span className="font-semibold truncate text-sm sm:text-base">{subject.title}</span>
                         <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
                           {(topicsBySubject[subject.id] || []).length}
                         </span>
                       </div>
-                      <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                      <div className="flex gap-0.5 sm:gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog('subject', subject)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
@@ -247,34 +247,35 @@ export default function ContentManager() {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => openCreateDialog('topic', subject.id)}>
+                        <Button variant="ghost" size="sm" className="h-7 px-1.5 sm:px-2 text-xs" onClick={() => openCreateDialog('topic', subject.id)}>
                           <Plus className="h-3 w-3 ml-0.5" />
-                          تاپیک
+                          <span className="hidden sm:inline">تاپیک</span>
+                          <span className="sm:hidden">+</span>
                         </Button>
                       </div>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="pb-4">
                     {(topicsBySubject[subject.id] || []).length === 0 ? (
-                      <p className="text-sm text-muted-foreground pr-8">هیچ تاپیکی وجود ندارد</p>
+                      <p className="text-sm text-muted-foreground pr-2 sm:pr-8">هیچ تاپیکی وجود ندارد</p>
                     ) : (
-                      <Accordion type="multiple" className="pr-6 space-y-2">
+                      <Accordion type="multiple" className="pr-2 sm:pr-6 space-y-2">
                         {(topicsBySubject[subject.id] || []).map(topic => (
                           <AccordionItem 
                             key={topic.id} 
                             value={topic.id}
                             className="border border-border/50 rounded-lg px-4 bg-muted/30"
                           >
-                            <AccordionTrigger className="hover:no-underline py-3">
-                              <div className="flex items-center justify-between w-full ml-4">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <AccordionTrigger className="hover:no-underline py-2.5 sm:py-3">
+                              <div className="flex items-center justify-between w-full ml-2 sm:ml-4 gap-1">
+                                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
                                   <FolderTree className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                   <span className="truncate text-sm">{topic.title}</span>
                                   <span className="text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded shrink-0">
                                     {(subtopicsByTopic[topic.id] || []).length}
                                   </span>
                                 </div>
-                                <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                                <div className="flex gap-0.5 sm:gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditDialog('topic', topic, subject.id)}>
                                     <Pencil className="h-3 w-3" />
                                   </Button>
@@ -286,18 +287,19 @@ export default function ContentManager() {
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
-                                  <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => openCreateDialog('subtopic', topic.id)}>
+                                  <Button variant="ghost" size="sm" className="h-6 px-1 sm:px-1.5 text-xs" onClick={() => openCreateDialog('subtopic', topic.id)}>
                                     <Plus className="h-2.5 w-2.5 ml-0.5" />
-                                    ساب
+                                    <span className="hidden sm:inline">ساب</span>
+                                    <span className="sm:hidden">+</span>
                                   </Button>
                                 </div>
                               </div>
                             </AccordionTrigger>
                             <AccordionContent className="pb-3">
                               {(subtopicsByTopic[topic.id] || []).length === 0 ? (
-                                <p className="text-sm text-muted-foreground pr-6">هیچ ساب‌تاپیکی وجود ندارد</p>
+                                <p className="text-sm text-muted-foreground pr-2 sm:pr-6">هیچ ساب‌تاپیکی وجود ندارد</p>
                               ) : (
-                                <div className="pr-6 space-y-1">
+                                <div className="pr-2 sm:pr-6 space-y-1">
                                   {(subtopicsByTopic[topic.id] || []).map(subtopic => (
                                     <div 
                                       key={subtopic.id}
