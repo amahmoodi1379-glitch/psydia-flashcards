@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, BookOpen, Box, Star, Lock, AlertCircle, Flame, CheckCircle2 } from "lucide-react";
+import { PlayCircle, BookOpen, Box, Star, Lock, AlertCircle } from "lucide-react";
 import { cn, toPersianNumber } from "@/lib/utils";
 import { SubjectSelector } from "@/components/exam/SubjectSelector";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -13,7 +13,6 @@ import {
   DailyReviewSkeleton, 
   ReviewCardSkeleton, 
 } from "@/components/skeleton/ExamPageSkeleton";
-import { useDailyQuizStatus } from "@/hooks/useDailyQuizStatus";
 
 export default function ExamPage() {
   const navigate = useNavigate();
@@ -24,8 +23,6 @@ export default function ExamPage() {
   
   const canBookmark = hasFeature("bookmarks");
   const canWrongReview = hasFeature("wrong_review");
-  const { hasCompleted: dailyQuizDone, correctCount: dqCorrect, totalCount: dqTotal, percentile: dqPercentile } = useDailyQuizStatus();
-
   const handleStartLeitnerReview = () => {
     navigate("/review");
   };
@@ -65,57 +62,6 @@ export default function ExamPage() {
             آماده تمرین هستید؟
           </p>
         </header>
-
-        {/* Daily Quiz Card */}
-        <section
-          className="mb-6 animate-fade-in"
-          style={{ animationDelay: "0.08s" }}
-        >
-          <div
-            onClick={() => navigate("/daily-quiz")}
-            className={cn(
-              "rounded-2xl p-5 border cursor-pointer transition-all active:scale-[0.98]",
-              dailyQuizDone
-                ? "bg-gradient-to-br from-success/10 via-success/5 to-transparent border-success/20 hover:border-success/40"
-                : "bg-gradient-to-br from-accent/10 via-primary/5 to-transparent border-accent/20 hover:border-accent/40"
-            )}
-          >
-            <div className="flex items-start gap-4">
-              <div className={cn(
-                "w-14 h-14 rounded-xl flex items-center justify-center shrink-0 shadow-lg",
-                dailyQuizDone
-                  ? "bg-gradient-to-br from-success to-success/80"
-                  : "bg-gradient-to-br from-accent to-primary"
-              )}>
-                {dailyQuizDone ? (
-                  <CheckCircle2 className="w-7 h-7 text-white" />
-                ) : (
-                  <Flame className="w-7 h-7 text-white" />
-                )}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-lg font-bold text-foreground">آزمون روز</h2>
-                  {dailyQuizDone ? (
-                    <span className="text-xs font-medium px-2 py-0.5 bg-success/10 text-success rounded-full border border-success/20">
-                      انجام شد ✓
-                    </span>
-                  ) : (
-                    <span className="text-xs font-medium px-2 py-0.5 bg-success/10 text-success rounded-full border border-success/20">
-                      رایگان
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {dailyQuizDone
-                    ? `${toPersianNumber(dqCorrect)} از ${toPersianNumber(dqTotal)} صحیح — بهتر از ${toPersianNumber(dqPercentile)}٪ شرکت‌کنندگان`
-                    : "۱۰ سوال تصادفی — ببین از چند درصد بهتری!"
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* Leitner Review Section */}
         <section 
