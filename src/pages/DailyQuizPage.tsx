@@ -138,14 +138,19 @@ export default function DailyQuizPage() {
     hasSubmittedRef.current = true;
 
     if (timerRef.current) clearInterval(timerRef.current);
-    setIsComplete(true);
-    hapticNotification("success");
 
     try {
       await submitQuiz(correctCount);
-    } catch {
-      // Stats will refresh on next poll anyway
+      console.log("[DailyQuiz] Submit succeeded, showing results");
+    } catch (err) {
+      console.error("[DailyQuiz] Submit failed:", err);
+      // Still show results locally even if server save failed
     }
+
+    // CRITICAL: Set isComplete AFTER submitQuiz resolves/rejects
+    // so the server actually has the data before user sees results
+    setIsComplete(true);
+    hapticNotification("success");
   };
 
   const handleGoBack = () => {
@@ -177,37 +182,9 @@ export default function DailyQuizPage() {
     );
   }
 
-  // ─── GATE 2: Already completed today (from server) ───
-  if (stats?.has_completed) {
-    return (
-      <AppLayout hideNav>
-        <div className="min-h-screen flex flex-col">
-          <DailyQuizHeader onBack={handleGoBack} />
-          <CompletedView
-            correctCount={stats.correct_count}
-            totalCount={stats.total_count}
-            percentile={stats.percentile}
-            totalParticipants={stats.total_participants}
-            onBack={handleGoBack}
-          />
-        </div>
-      </AppLayout>
-    );
-  }
-
-  // ─── GATE 3: Error / no questions ───
-  if (questionsError || questions.length === 0) {
-    return (
-      <AppLayout hideNav>
-        <div className="min-h-screen flex flex-col items-center justify-center p-6">
-          <p className="text-destructive mb-4">{questionsError || "سوالی برای آزمون روز یافت نشد"}</p>
-          <Button variant="outline" onClick={handleGoBack}>بازگشت</Button>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  // ─── GATE 4: Just completed (local) ───
+  // ─── GATE 2: Just completed in THIS session (local — shows answer review) ───
+  // Must be BEFORE Gate 3 (server has_completed) so the user sees the detailed
+  // answer review after finishing, not the summary-only CompletedView.
   if (isComplete) {
     const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
@@ -323,6 +300,36 @@ export default function DailyQuizPage() {
               </Button>
             </div>
           </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // ─── GATE 3: Already completed today (from server — returning user) ───
+  if (stats?.has_completed) {
+    return (
+      <AppLayout hideNav>
+        <div className="min-h-screen flex flex-col">
+          <DailyQuizHeader onBack={handleGoBack} />
+          <CompletedView
+            correctCount={stats.correct_count}
+            totalCount={stats.total_count}
+            percentile={stats.percentile}
+            totalParticipants={stats.total_participants}
+            onBack={handleGoBack}
+          />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // ─── GATE 4: Error / no questions ───
+  if (questionsError || questions.length === 0) {
+    return (
+      <AppLayout hideNav>
+        <div className="min-h-screen flex flex-col items-center justify-center p-6">
+          <p className="text-destructive mb-4">{questionsError || "سوالی برای آزمون روز یافت نشد"}</p>
+          <Button variant="outline" onClick={handleGoBack}>بازگشت</Button>
         </div>
       </AppLayout>
     );
