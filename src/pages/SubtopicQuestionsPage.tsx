@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { Button } from "@/components/ui/button";
@@ -19,12 +20,15 @@ import { useRecordAnswer } from "@/hooks/useRecordAnswer";
 import { useLeitnerToggle } from "@/hooks/useLeitnerToggle";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
+
 import { useReportQuestion } from "@/hooks/useReportQuestion";
 import { toast } from "sonner";
+import { hapticImpact } from "@/lib/haptic";
 
 export default function SubtopicQuestionsPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   const params = new URLSearchParams(location.search);
   const subtopicId = params.get("id") ?? location.state?.subtopicId;
@@ -45,7 +49,7 @@ export default function SubtopicQuestionsPage() {
   const { recordAnswer } = useRecordAnswer();
   const { toggleLeitner, isToggling } = useLeitnerToggle();
   const { toggleBookmark, isBookmarked: checkIsBookmarked } = useBookmarks();
-  const { hasFeature } = useSubscription();
+  const { hasFeature, refetch: refetchSubscription } = useSubscription();
   const { reportQuestion, isReporting } = useReportQuestion();
 
   const canBookmark = hasFeature("bookmarks");
@@ -125,6 +129,10 @@ export default function SubtopicQuestionsPage() {
       // Keep existing leitner state (if already in Leitner, it was updated server-side).
       // In unanswered mode the question stays visible for the rest of this session;
       // it disappears automatically the next time the user opens this page.
+      await Promise.all([
+        refetchSubscription(),
+        queryClient.invalidateQueries({ queryKey: ["leitner-due-count"] }),
+      ]);
     } catch (recordError) {
       const message =
         recordError instanceof Error
@@ -135,6 +143,7 @@ export default function SubtopicQuestionsPage() {
   };
 
   const handleToggleLeitner = async (questionId: string) => {
+    hapticImpact("medium");
     try {
       const result = await toggleLeitner(questionId);
       setLeitnerMap((prev) => new Map(prev).set(questionId, result.is_in_leitner));
@@ -148,6 +157,7 @@ export default function SubtopicQuestionsPage() {
       toast.error("برای استفاده از نشان‌گذاری، پلن پیشرفته تهیه کنید");
       return;
     }
+    hapticImpact("light");
     toggleBookmark(questionId);
   };
 

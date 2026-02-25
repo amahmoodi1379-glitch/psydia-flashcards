@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface SubtopicQuestion {
@@ -25,93 +26,78 @@ export interface SubtopicQuestionsResult {
 
 const PAGE_SIZE = 10;
 
+interface SubtopicQuestionsData {
+  questions: SubtopicQuestion[];
+  totalCount: number;
+}
+
+async function fetchSubtopicQuestions(
+  subtopicId: string,
+  page: number,
+  onlyUnanswered: boolean
+): Promise<SubtopicQuestionsData> {
+  const { data, error } = await supabase.rpc("get_subtopic_questions", {
+    _subtopic_id: subtopicId,
+    _page: page,
+    _page_size: PAGE_SIZE,
+    _only_unanswered: onlyUnanswered,
+  });
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    stem_text: string;
+    choices: unknown;
+    subtopic_id: string;
+    is_answered: boolean;
+    is_in_leitner: boolean;
+    total_count: number;
+  }>;
+
+  return {
+    totalCount: rows[0]?.total_count ?? 0,
+    questions: rows.map((q) => ({
+      id: q.id,
+      stem_text: q.stem_text,
+      subtopic_id: q.subtopic_id,
+      choices: Array.isArray(q.choices) ? (q.choices as string[]) : JSON.parse(q.choices as string),
+      is_answered: q.is_answered,
+      is_in_leitner: q.is_in_leitner,
+    })),
+  };
+}
+
 export function useSubtopicQuestions(subtopicId: string | undefined): SubtopicQuestionsResult {
-  const [questions, setQuestions] = useState<SubtopicQuestion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [onlyUnanswered, setOnlyUnanswered] = useState(false);
-  const [fetchKey, setFetchKey] = useState(0);
-
-  const refetch = useCallback(() => setFetchKey((k) => k + 1), []);
 
   // Reset page when filter changes
   useEffect(() => {
     setPage(1);
   }, [onlyUnanswered, subtopicId]);
 
-  useEffect(() => {
-    if (!subtopicId) {
-      setQuestions([]);
-      setTotalCount(0);
-      setIsLoading(false);
-      return;
-    }
+  const queryKey = ["subtopic-questions", subtopicId, page, onlyUnanswered];
 
-    let active = true;
+  const { data, isLoading, error } = useQuery({
+    queryKey,
+    queryFn: () => fetchSubtopicQuestions(subtopicId!, page, onlyUnanswered),
+    enabled: !!subtopicId,
+    staleTime: 30_000, // 30 seconds cache for subtopic browsing
+  });
 
-    async function fetchQuestions() {
-      setIsLoading(true);
-      setError(null);
+  const refetch = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["subtopic-questions", subtopicId] });
+  }, [queryClient, subtopicId]);
 
-      try {
-        const { data, error: rpcError } = await supabase.rpc("get_subtopic_questions", {
-          _subtopic_id: subtopicId!,
-          _page: page,
-          _page_size: PAGE_SIZE,
-          _only_unanswered: onlyUnanswered,
-        });
-
-        if (!active) return;
-
-        if (rpcError) throw rpcError;
-
-        const rows = (data ?? []) as Array<{
-          id: string;
-          stem_text: string;
-          choices: unknown;
-          subtopic_id: string;
-          is_answered: boolean;
-          is_in_leitner: boolean;
-          total_count: number;
-        }>;
-
-        const total = rows[0]?.total_count ?? 0;
-        setTotalCount(total);
-
-        const parsed: SubtopicQuestion[] = rows.map((q) => ({
-          id: q.id,
-          stem_text: q.stem_text,
-          subtopic_id: q.subtopic_id,
-          choices: Array.isArray(q.choices) ? (q.choices as string[]) : JSON.parse(q.choices as string),
-          is_answered: q.is_answered,
-          is_in_leitner: q.is_in_leitner,
-        }));
-
-        setQuestions(parsed);
-      } catch (err) {
-        if (!active) return;
-        console.error("Error fetching subtopic questions:", err);
-        setError("خطا در بارگذاری سوالات");
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    }
-
-    fetchQuestions();
-
-    return () => {
-      active = false;
-    };
-  }, [subtopicId, page, onlyUnanswered, fetchKey]);
-
+  const totalCount = data?.totalCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return {
-    questions,
+    questions: data?.questions ?? [],
     isLoading,
-    error,
+    error: error ? "خطا در بارگذاری سوالات" : null,
     totalCount,
     page,
     totalPages,

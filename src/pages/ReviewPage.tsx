@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -15,6 +15,14 @@ import { ReviewPageSkeleton } from "@/components/skeleton/ReviewPageSkeleton";
 import { useReportQuestion } from "@/hooks/useReportQuestion";
 import { useLeitnerToggle } from "@/hooks/useLeitnerToggle";
 import { toast } from "sonner";
+import { hapticImpact, hapticNotification } from "@/lib/haptic";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function ReviewPage() {
   const navigate = useNavigate();
@@ -52,6 +60,7 @@ export default function ReviewPage() {
   } | undefined>();
   const answerRequestIdsRef = useRef<Map<string, string>>(new Map());
   const [leitnerState, setLeitnerState] = useState<Map<string, boolean>>(new Map());
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
@@ -127,6 +136,7 @@ export default function ReviewPage() {
 
   const handleToggleLeitner = async () => {
     if (!currentQuestion) return;
+    hapticImpact("medium");
     try {
       const result = await toggleLeitner(currentQuestion.id);
       setLeitnerState((prev) => new Map(prev).set(currentQuestion.id, result.is_in_leitner));
@@ -145,12 +155,16 @@ export default function ReviewPage() {
     }
   };
 
-  const handleGoBack = () => {
+  const handleGoBack = useCallback(() => {
     if (answeredQuestions.size > 0 && !isComplete && currentIndex < totalQuestions - 1) {
-      if (!confirm("جلسه مرور هنوز تمام نشده. آیا مطمئنید می‌خواهید خارج شوید؟")) {
-        return;
-      }
+      setShowExitDialog(true);
+      return;
     }
+    navigate("/");
+  }, [answeredQuestions.size, isComplete, currentIndex, totalQuestions, navigate]);
+
+  const handleConfirmExit = () => {
+    setShowExitDialog(false);
     navigate("/");
   };
 
@@ -162,6 +176,7 @@ export default function ReviewPage() {
       return;
     }
     
+    hapticImpact("light");
     toggleBookmark(currentQuestion.id);
   };
 
@@ -222,7 +237,7 @@ export default function ReviewPage() {
             </div>
           </div>
           
-          <Button variant="hero" size="lg" onClick={handleGoBack}>
+          <Button variant="hero" size="lg" onClick={() => { hapticNotification("success"); handleGoBack(); }}>
             بازگشت به خانه
           </Button>
         </div>
@@ -328,6 +343,25 @@ export default function ReviewPage() {
           </div>
         )}
       </div>
+      {/* Exit Confirmation Dialog */}
+      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>خروج از جلسه مرور</DialogTitle>
+            <DialogDescription>
+              جلسه مرور هنوز تمام نشده. آیا مطمئنید می‌خواهید خارج شوید؟
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 mt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowExitDialog(false)}>
+              ادامه مرور
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={handleConfirmExit}>
+              خروج
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

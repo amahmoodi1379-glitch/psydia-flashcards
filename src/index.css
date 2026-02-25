@@ -105,6 +105,8 @@
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
     direction: rtl;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
   }
 
   body {

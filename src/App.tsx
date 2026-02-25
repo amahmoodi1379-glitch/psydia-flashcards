@@ -8,12 +8,14 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TelegramAuthGate } from "@/components/auth/TelegramAuthGate";
 import { AdminGuard } from "@/components/admin/AdminGuard";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import ExamPage from "./pages/ExamPage";
 import ProfilePage from "./pages/ProfilePage";
 import ReviewPage from "./pages/ReviewPage";
 import SubtopicQuestionsPage from "./pages/SubtopicQuestionsPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
+import DailyQuizPage from "./pages/DailyQuizPage";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ContentManager from "./pages/admin/ContentManager";
@@ -38,6 +40,7 @@ const App = () => (
           <TooltipProvider>
             <Sonner />
             <BrowserRouter>
+              <ScrollToTop />
               <Routes>
                 {/* Main app routes — protected by Telegram Mini App auth */}
                 <Route path="/" element={<TelegramAuthGate><ExamPage /></TelegramAuthGate>} />
@@ -46,6 +49,7 @@ const App = () => (
                 <Route path="/subtopic" element={<TelegramAuthGate><SubtopicQuestionsPage /></TelegramAuthGate>} />
                 <Route path="/subscription" element={<TelegramAuthGate><SubscriptionPage /></TelegramAuthGate>} />
                 <Route path="/leaderboard" element={<TelegramAuthGate><LeaderboardPage /></TelegramAuthGate>} />
+                <Route path="/daily-quiz" element={<TelegramAuthGate><DailyQuizPage /></TelegramAuthGate>} />
                 
                 {/* Admin routes — uses email/password auth, separate from Telegram */}
                 <Route path="/admin" element={<AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>} />

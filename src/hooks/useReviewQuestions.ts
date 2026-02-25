@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Question {
@@ -30,18 +30,42 @@ type ReviewQuestionRow = {
   new_count: number;
 };
 
-async function fetchReviewQuestionsRpc(limit: number, filter?: ReviewFilter): Promise<ReviewQuestionRow[]> {
-  const { data, error } = await supabase.rpc("get_review_questions", {
-    _limit: limit,
-    _filter_type: filter?.type ?? "bookmarks",
-    _filter_id: filter?.id ?? null,
-  });
+interface ParsedReviewData {
+  questions: Question[];
+  dueCount: number;
+  newCount: number;
+}
 
-  if (error) {
-    throw error;
+async function fetchReviewQuestionsRpc(
+  limit: number,
+  filterType: string,
+  filterId: string | undefined
+): Promise<ParsedReviewData> {
+  if ((filterType === "subject" || filterType === "topic" || filterType === "subtopic") && !filterId) {
+    throw new Error("فیلتر انتخاب‌شده نامعتبر است");
   }
 
-  return (data ?? []) as ReviewQuestionRow[];
+  const { data, error } = await supabase.rpc("get_review_questions", {
+    _limit: limit,
+    _filter_type: filterType,
+    _filter_id: filterId ?? null,
+  });
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as ReviewQuestionRow[];
+  const counts = rows[0];
+
+  return {
+    questions: rows.map((q) => ({
+      id: q.id,
+      stem_text: q.stem_text,
+      subtopic_id: q.subtopic_id,
+      choices: Array.isArray(q.choices) ? (q.choices as string[]) : JSON.parse(q.choices as string),
+    })),
+    dueCount: counts?.due_count ?? 0,
+    newCount: counts?.new_count ?? 0,
+  };
 }
 
 export function useReviewQuestions(
@@ -49,82 +73,21 @@ export function useReviewQuestions(
   filter: ReviewFilter = { type: "bookmarks" },
   enabled: boolean = true
 ): ReviewQuestionsResult {
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dueCount, setDueCount] = useState(0);
-  const [newCount, setNewCount] = useState(0);
-
   const filterType = filter.type;
   const filterId = filter.id;
 
-  useEffect(() => {
-    if (!enabled) {
-      setIsLoading(false);
-      return;
-    }
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["review-questions", limit, filterType, filterId],
+    queryFn: () => fetchReviewQuestionsRpc(limit, filterType, filterId),
+    enabled,
+    staleTime: 0, // Always fetch fresh review questions
+  });
 
-    let active = true;
-
-    async function fetchQuestions() {
-      if (!active) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        if ((filterType === "subject" || filterType === "topic" || filterType === "subtopic") && !filterId) {
-          if (!active) {
-            return;
-          }
-
-          setQuestions([]);
-          setDueCount(0);
-          setNewCount(0);
-          setError("فیلتر انتخاب‌شده نامعتبر است");
-          return;
-        }
-
-        const rows = await fetchReviewQuestionsRpc(limit, { type: filterType, id: filterId });
-
-        if (!active) {
-          return;
-        }
-
-        const counts = rows[0];
-        setDueCount(counts?.due_count ?? 0);
-        setNewCount(counts?.new_count ?? 0);
-
-        const parsed: Question[] = rows.map((q) => ({
-          id: q.id,
-          stem_text: q.stem_text,
-          subtopic_id: q.subtopic_id,
-          choices: Array.isArray(q.choices) ? (q.choices as string[]) : JSON.parse(q.choices as string),
-        }));
-
-        setQuestions(parsed);
-      } catch (err) {
-        if (!active) {
-          return;
-        }
-
-        console.error("Error fetching review questions:", err);
-        setError("خطا در بارگذاری سوالات");
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchQuestions();
-
-    return () => {
-      active = false;
-    };
-  }, [limit, filterType, filterId, enabled]);
-
-  return { questions, isLoading, error, dueCount, newCount };
+  return {
+    questions: data?.questions ?? [],
+    isLoading,
+    error: error ? (error instanceof Error ? error.message : "خطا در بارگذاری سوالات") : null,
+    dueCount: data?.dueCount ?? 0,
+    newCount: data?.newCount ?? 0,
+  };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -15,66 +15,42 @@ interface LeitnerReviewResult {
   error: string | null;
 }
 
+async function fetchLeitnerReviewQuestions(limit: number): Promise<LeitnerQuestion[]> {
+  const { data, error } = await supabase.rpc(
+    "get_leitner_review_questions",
+    { _limit: limit }
+  );
+
+  if (error) throw error;
+
+  return ((data ?? []) as Array<{
+    id: string;
+    stem_text: string;
+    choices: unknown;
+    subtopic_id: string;
+  }>).map((q) => ({
+    id: q.id,
+    stem_text: q.stem_text,
+    subtopic_id: q.subtopic_id,
+    choices: Array.isArray(q.choices)
+      ? (q.choices as string[])
+      : JSON.parse(q.choices as string),
+  }));
+}
+
 export function useLeitnerReview(limit: number = 20): LeitnerReviewResult {
   const { user } = useAuth();
-  const [questions, setQuestions] = useState<LeitnerQuestion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user) {
-      setQuestions([]);
-      setIsLoading(false);
-      return;
-    }
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["leitner-review", user?.id, limit],
+    queryFn: () => fetchLeitnerReviewQuestions(limit),
+    enabled: !!user,
+    staleTime: 0, // Always fetch fresh review questions
+  });
 
-    let active = true;
-
-    async function fetchQuestions() {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const { data, error: rpcError } = await supabase.rpc(
-          "get_leitner_review_questions",
-          { _limit: limit }
-        );
-
-        if (!active) return;
-        if (rpcError) throw rpcError;
-
-        const rows = (data ?? []) as Array<{
-          id: string;
-          stem_text: string;
-          choices: unknown;
-          subtopic_id: string;
-        }>;
-
-        const parsed: LeitnerQuestion[] = rows.map((q) => ({
-          id: q.id,
-          stem_text: q.stem_text,
-          subtopic_id: q.subtopic_id,
-          choices: Array.isArray(q.choices)
-            ? (q.choices as string[])
-            : JSON.parse(q.choices as string),
-        }));
-
-        setQuestions(parsed);
-      } catch (err) {
-        if (!active) return;
-        console.error("Error fetching leitner review questions:", err);
-        setError("خطا در بارگذاری سوالات لایتنر");
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    }
-
-    fetchQuestions();
-
-    return () => {
-      active = false;
-    };
-  }, [user, limit]);
-
-  return { questions, isLoading, error };
+  return {
+    questions: data ?? [],
+    isLoading,
+    error: error ? "خطا در بارگذاری سوالات لایتنر" : null,
+  };
 }

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, BookOpen, Box, Star, Lock, AlertCircle } from "lucide-react";
+import { PlayCircle, BookOpen, Box, Star, Lock, AlertCircle, Flame } from "lucide-react";
 import { cn, toPersianNumber } from "@/lib/utils";
 import { SubjectSelector } from "@/components/exam/SubjectSelector";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -63,6 +63,34 @@ export default function ExamPage() {
             آماده تمرین هستید؟
           </p>
         </header>
+
+        {/* Daily Quiz Card */}
+        <section
+          className="mb-6 animate-fade-in"
+          style={{ animationDelay: "0.08s" }}
+        >
+          <div
+            onClick={() => navigate("/daily-quiz")}
+            className="bg-gradient-to-br from-accent/10 via-primary/5 to-transparent rounded-2xl p-5 border border-accent/20 cursor-pointer hover:border-accent/40 transition-all active:scale-[0.98]"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-accent to-primary rounded-xl flex items-center justify-center shrink-0 shadow-lg">
+                <Flame className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-lg font-bold text-foreground">آزمون روز</h2>
+                  <span className="text-xs font-medium px-2 py-0.5 bg-success/10 text-success rounded-full border border-success/20">
+                    رایگان
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  ۱۰ سوال تصادفی — ببین از چند درصد بهتری!
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Leitner Review Section */}
         <section 

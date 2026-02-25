@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { HelpCircle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { hapticImpact, hapticNotification } from "@/lib/haptic";
 
 interface QuestionCardProps {
   questionId: string;
@@ -75,6 +76,7 @@ export function QuestionCard({
           ? (reverseMap[result.correct_index] ?? result.correct_index)
           : result.correct_index;
 
+        hapticNotification(result.is_correct ? "success" : "error");
         onAnswer(shuffledIndex, result.is_correct, shuffledCorrectIndex, result.explanation || undefined);
       } else {
         throw new Error("No result returned");
@@ -90,6 +92,7 @@ export function QuestionCard({
 
   const handleChoiceClick = async (index: number) => {
     if (hasAnswered || isChecking) return;
+    hapticImpact("light");
     await checkAnswer(index);
   };
 

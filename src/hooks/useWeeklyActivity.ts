@@ -10,6 +10,10 @@ interface DayActivity {
 
 const PERSIAN_DAYS = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
 
+/** Format a Date as YYYY-MM-DD in local time for stable comparison */
+const toDateKey = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 const generateEmptyWeek = (): DayActivity[] => {
   const days: DayActivity[] = [];
   const today = new Date();
@@ -51,14 +55,11 @@ export function useWeeklyActivity() {
       const week = generateEmptyWeek();
 
       (activityRows || []).forEach((row: { activity_date: string; activity_count: number }) => {
-        const activityDate = new Date(row.activity_date);
-        activityDate.setHours(0, 0, 0, 0);
+        // Use the raw date string (YYYY-MM-DD) from the server directly
+        // to avoid timezone conversion issues
+        const activityKey = row.activity_date.slice(0, 10);
         
-        const dayEntry = week.find((d) => {
-          const entryDate = new Date(d.date);
-          entryDate.setHours(0, 0, 0, 0);
-          return entryDate.getTime() === activityDate.getTime();
-        });
+        const dayEntry = week.find((d) => toDateKey(d.date) === activityKey);
         
         if (dayEntry) {
           dayEntry.value = Number(row.activity_count) || 0;

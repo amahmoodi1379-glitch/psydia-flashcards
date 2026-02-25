@@ -26,6 +26,7 @@ export function useLeitnerDueCount(): LeitnerDueCountResult {
     },
     enabled: !!user,
     refetchInterval: 60_000, // Refresh every minute
+    refetchIntervalInBackground: false,
   });
 
   return {

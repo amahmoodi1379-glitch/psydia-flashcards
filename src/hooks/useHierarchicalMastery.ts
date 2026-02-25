@@ -125,6 +125,7 @@ export function useHierarchicalMastery() {
       return Array.from(subjectsMap.values());
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
+    enabled: !!user,
   });
 
   return { subjects: data || [], isLoading };
