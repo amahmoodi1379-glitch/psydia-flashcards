@@ -56,6 +56,8 @@ export default function SubtopicQuestionsPage() {
     Map<string, { isCorrect: boolean; correctIndex: number; explanation?: string }>
   >(new Map());
   const [leitnerMap, setLeitnerMap] = useState<Map<string, boolean>>(new Map());
+  // Questions answered in unanswered-only mode that are waiting to be dismissed by the user
+  const [pendingDismiss, setPendingDismiss] = useState<Set<string>>(new Set());
   const answerRequestIdsRef = useRef<Map<string, string>>(new Map());
 
   // Initialize unknown leitner states from server data when questions change.
@@ -125,9 +127,10 @@ export default function SubtopicQuestionsPage() {
       // record_answer no longer auto-adds to Leitner.
       // Keep existing leitner state (if already in Leitner, it was updated server-side).
 
-      // When viewing only unanswered questions, refetch so answered ones disappear
+      // When viewing only unanswered questions, mark question as pending dismiss
+      // so the user can review the answer and toggle Leitner before it disappears.
       if (onlyUnanswered) {
-        refetch();
+        setPendingDismiss((prev) => new Set(prev).add(questionId));
       }
     } catch (recordError) {
       const message =
@@ -145,6 +148,18 @@ export default function SubtopicQuestionsPage() {
     } catch {
       // Error toast is handled by the hook
     }
+  };
+
+  const handleDismiss = (questionId: string) => {
+    setPendingDismiss((prev) => {
+      const next = new Set(prev);
+      next.delete(questionId);
+      // Refetch when the dismissed question is the last pending one
+      if (next.size === 0) {
+        refetch();
+      }
+      return next;
+    });
   };
 
   const handleToggleBookmark = (questionId: string) => {
@@ -332,7 +347,7 @@ export default function SubtopicQuestionsPage() {
 
                 {/* Leitner Toggle - visible after answering */}
                 {!!answered && (
-                  <div className="mt-3 animate-fade-in">
+                  <div className="mt-3 animate-fade-in space-y-2">
                     <button
                       onClick={() => handleToggleLeitner(q.id)}
                       disabled={isToggling}
@@ -348,6 +363,14 @@ export default function SubtopicQuestionsPage() {
                         {isInLeitner ? "در لایتنر است (حذف)" : "افزودن به لایتنر"}
                       </span>
                     </button>
+                    {pendingDismiss.has(q.id) && (
+                      <button
+                        onClick={() => handleDismiss(q.id)}
+                        className="w-full p-2.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-all duration-200"
+                      >
+                        سوال بعدی ←
+                      </button>
+                    )}
                   </div>
                 )}
 
