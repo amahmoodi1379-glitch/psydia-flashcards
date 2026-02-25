@@ -35,6 +35,7 @@ export default function DailyQuizPage() {
     questionsError,
     stats,
     isLoadingStats,
+    isRefreshingStats,
     submitQuiz,
     isSubmitting,
     submitResult,
@@ -55,6 +56,7 @@ export default function DailyQuizPage() {
   const [timerStarted, setTimerStarted] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasSubmittedRef = useRef(false);
+  const quizStartedRef = useRef(false);
 
   const totalQuestions = questions.length;
   const allAnswered = totalQuestions > 0 && answeredSet.size >= totalQuestions;
@@ -150,7 +152,10 @@ export default function DailyQuizPage() {
   };
 
   // ─── GATE 1: Loading ───
-  if (isLoadingQuestions || isLoadingStats) {
+  // When page first mounts and stats are refreshing (stale cache), wait for fresh data
+  // so we get the true has_completed value. Once quiz is started, don't block on refreshes.
+  const waitingForFreshStats = !quizStartedRef.current && isRefreshingStats && !stats?.has_completed;
+  if (isLoadingQuestions || isLoadingStats || waitingForFreshStats) {
     return (
       <AppLayout hideNav>
         <div className="min-h-screen flex flex-col">
@@ -318,6 +323,7 @@ export default function DailyQuizPage() {
   }
 
   // ─── Active quiz: all 10 questions on one scrollable page ───
+  quizStartedRef.current = true;
   return (
     <AppLayout hideNav>
       <div className="min-h-screen flex flex-col">

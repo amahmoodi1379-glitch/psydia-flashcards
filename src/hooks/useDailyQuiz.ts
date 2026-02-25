@@ -58,7 +58,8 @@ export function useDailyQuiz() {
       };
     },
     enabled: !!user,
-    staleTime: 60_000, // 1 minute — refresh percentile regularly
+    staleTime: 0, // Always refetch on mount to guarantee fresh has_completed
+    refetchOnMount: "always",
     refetchInterval: 2 * 60_000, // Auto-refresh every 2 minutes for live percentile
     refetchIntervalInBackground: false,
   });
@@ -78,8 +79,8 @@ export function useDailyQuiz() {
         user_correct: Number(row?.user_correct ?? 0),
       };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["daily-quiz-stats"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["daily-quiz-stats"] });
     },
   });
 
@@ -90,6 +91,7 @@ export function useDailyQuiz() {
 
     stats: statsQuery.data ?? null,
     isLoadingStats: statsQuery.isLoading,
+    isRefreshingStats: statsQuery.isFetching && !statsQuery.isLoading,
 
     submitQuiz: submitMutation.mutateAsync,
     isSubmitting: submitMutation.isPending,
