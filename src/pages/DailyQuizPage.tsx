@@ -196,11 +196,11 @@ export default function DailyQuizPage() {
   }
 
   // ─── GATE 3: Error / no questions ───
-  if (statsError || questionsError || questions.length === 0) {
+  if (questionsError || questions.length === 0) {
     return (
       <AppLayout hideNav>
         <div className="min-h-screen flex flex-col items-center justify-center p-6">
-          <p className="text-destructive mb-4">{questionsError || (statsError ? "خطا در بارگذاری آمار آزمون روز" : "سوالی برای آزمون روز یافت نشد")}</p>
+          <p className="text-destructive mb-4">{questionsError || "سوالی برای آزمون روز یافت نشد"}</p>
           <Button variant="outline" onClick={handleGoBack}>بازگشت</Button>
         </div>
       </AppLayout>
