@@ -173,6 +173,7 @@ serve(async (req) => {
         user_metadata: {
           display_name: displayName,
           telegram_id: telegramId,
+          telegram_username: tgUser.username || null,
           avatar_url: tgUser.photo_url || null,
         },
       });
@@ -206,6 +207,7 @@ serve(async (req) => {
         .from("profiles")
         .update({
           telegram_id: telegramId,
+          telegram_username: tgUser.username || null,
           display_name: displayName,
           avatar_url: tgUser.photo_url || null,
         })
@@ -224,8 +226,9 @@ serve(async (req) => {
         const hasCustomAvatar = existingProfile?.avatar_url != null
           && /^\d+$/.test(existingProfile.avatar_url);
 
-        const profileUpdate: Record<string, string> = {
+        const profileUpdate: Record<string, string | null> = {
           telegram_id: telegramId,
+          telegram_username: tgUser.username || null,
           display_name: displayName,
         };
 

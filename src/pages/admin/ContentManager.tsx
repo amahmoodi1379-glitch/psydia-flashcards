@@ -224,7 +224,7 @@ export default function ContentManager() {
                 <AccordionItem 
                   key={subject.id} 
                   value={subject.id}
-                  className="border border-border rounded-lg px-4"
+                  className="border border-border rounded-lg px-2 sm:px-4 overflow-hidden"
                 >
                   <AccordionTrigger className="hover:no-underline py-3 sm:py-4">
                     <div className="flex items-center justify-between w-full ml-2 sm:ml-4 gap-1">
@@ -264,7 +264,7 @@ export default function ContentManager() {
                           <AccordionItem 
                             key={topic.id} 
                             value={topic.id}
-                            className="border border-border/50 rounded-lg px-4 bg-muted/30"
+                            className="border border-border/50 rounded-lg px-2 sm:px-4 bg-muted/30 overflow-hidden"
                           >
                             <AccordionTrigger className="hover:no-underline py-2.5 sm:py-3">
                               <div className="flex items-center justify-between w-full ml-2 sm:ml-4 gap-1">
@@ -305,11 +305,11 @@ export default function ContentManager() {
                                       key={subtopic.id}
                                       className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-muted/50 group"
                                     >
-                                      <div className="flex items-center gap-2">
-                                        <FileText className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-sm">{subtopic.title}</span>
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                                        <span className="text-sm truncate">{subtopic.title}</span>
                                       </div>
-                                      <div className="flex gap-1">
+                                      <div className="flex gap-1 shrink-0">
                                         <Button 
                                           variant="ghost" 
                                           size="icon" 

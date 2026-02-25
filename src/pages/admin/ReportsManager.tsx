@@ -4,7 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, Eye, Flag } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Loader2, Trash2, Eye, Flag, Pencil, Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
@@ -18,11 +22,21 @@ interface Report {
   questions?: { stem_text: string; choices: unknown; correct_index: number; explanation: string | null };
 }
 
+interface EditQuestionForm {
+  stem_text: string;
+  choices: string[];
+  correct_index: number;
+  explanation: string;
+}
+
 export default function ReportsManager() {
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<EditQuestionForm | null>(null);
+  const [isSavingQuestion, setIsSavingQuestion] = useState(false);
 
   const fetchReports = async () => {
     setIsLoading(true);
@@ -71,6 +85,75 @@ export default function ReportsManager() {
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
+    }
+  };
+
+  const startEditing = (report: Report) => {
+    if (!report.questions) return;
+    const choices = getChoicesArray(report.questions.choices);
+    setEditForm({
+      stem_text: report.questions.stem_text,
+      choices: [...choices, '', '', '', ''].slice(0, 4),
+      correct_index: report.questions.correct_index,
+      explanation: report.questions.explanation || '',
+    });
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditForm(null);
+  };
+
+  const handleSaveQuestion = async () => {
+    if (!selectedReport || !editForm) return;
+
+    if (!editForm.stem_text.trim()) {
+      toast.error('متن سوال الزامی است');
+      return;
+    }
+
+    const validChoices = editForm.choices.filter((c) => c.trim());
+    if (validChoices.length < 2) {
+      toast.error('حداقل دو گزینه الزامی است');
+      return;
+    }
+
+    if (editForm.correct_index < 0 || editForm.correct_index >= editForm.choices.length) {
+      toast.error('لطفاً گزینه صحیح را انتخاب کنید');
+      return;
+    }
+
+    const selectedChoiceText = editForm.choices[editForm.correct_index];
+    if (!selectedChoiceText?.trim()) {
+      toast.error('گزینه صحیح انتخاب‌شده خالی است');
+      return;
+    }
+    const remappedCorrectIndex = validChoices.indexOf(selectedChoiceText);
+
+    setIsSavingQuestion(true);
+    try {
+      const { error } = await supabase
+        .from('questions')
+        .update({
+          stem_text: editForm.stem_text,
+          choices: validChoices,
+          correct_index: remappedCorrectIndex,
+          explanation: editForm.explanation || null,
+        })
+        .eq('id', selectedReport.question_id);
+
+      if (error) throw error;
+
+      toast.success('سوال با موفقیت ویرایش شد');
+      setIsEditing(false);
+      setEditForm(null);
+      fetchReports();
+    } catch (error) {
+      console.error(error);
+      toast.error('خطا در ذخیره سوال');
+    } finally {
+      setIsSavingQuestion(false);
     }
   };
 
@@ -214,12 +297,12 @@ export default function ReportsManager() {
       )}
 
       {/* Question Detail Dialog */}
-      <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
-        <DialogContent className="w-full max-w-lg mx-2 sm:mx-auto" dir="rtl">
+      <Dialog open={!!selectedReport} onOpenChange={(open) => { if (!open) { setSelectedReport(null); cancelEditing(); } }}>
+        <DialogContent className="w-full max-w-2xl max-h-[92vh] overflow-y-auto mx-2 sm:mx-auto" dir="rtl">
           <DialogHeader>
-            <DialogTitle>جزئیات سوال گزارش شده</DialogTitle>
+            <DialogTitle>{isEditing ? 'ویرایش سوال گزارش شده' : 'جزئیات سوال گزارش شده'}</DialogTitle>
           </DialogHeader>
-          {selectedReport?.questions && (
+          {selectedReport?.questions && !isEditing && (
             <div className="space-y-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">متن سوال</p>
@@ -260,18 +343,94 @@ export default function ReportsManager() {
                     دلیل: {selectedReport.reason || 'other'}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDelete(selectedReport.id)}
-                  disabled={isDeleting === selectedReport.id}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => startEditing(selectedReport)}
+                  >
+                    <Pencil className="h-4 w-4 ml-2" />
+                    ویرایش سوال
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDelete(selectedReport.id)}
+                    disabled={isDeleting === selectedReport.id}
+                  >
+                    {isDeleting === selectedReport.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 ml-2" />
+                    )}
+                    حذف گزارش
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          {selectedReport?.questions && isEditing && editForm && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-stem">متن سوال</Label>
+                <Textarea
+                  id="edit-stem"
+                  value={editForm.stem_text}
+                  onChange={(e) => setEditForm({ ...editForm, stem_text: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label>
+                  گزینه‌ها <span className="text-destructive">*</span>
+                  <span className="text-sm text-muted-foreground mr-2">(گزینه صحیح را انتخاب کنید)</span>
+                </Label>
+                <RadioGroup
+                  value={editForm.correct_index >= 0 ? editForm.correct_index.toString() : ''}
+                  onValueChange={(value) => setEditForm({ ...editForm, correct_index: parseInt(value) })}
                 >
-                  {isDeleting === selectedReport.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin ml-2" />
-                  ) : (
-                    <Trash2 className="h-4 w-4 ml-2" />
-                  )}
-                  حذف گزارش
+                  {editForm.choices.map((choice, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <RadioGroupItem value={index.toString()} id={`edit-choice-${index}`} />
+                      <Input
+                        value={choice}
+                        onChange={(e) => {
+                          const newChoices = [...editForm.choices];
+                          newChoices[index] = e.target.value;
+                          setEditForm({ ...editForm, choices: newChoices });
+                        }}
+                        placeholder={`گزینه ${index + 1}`}
+                        className="flex-1"
+                      />
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-explanation">توضیح پاسخ (اختیاری)</Label>
+                <Textarea
+                  id="edit-explanation"
+                  value={editForm.explanation}
+                  onChange={(e) => setEditForm({ ...editForm, explanation: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-2 text-xs text-muted-foreground">
+                <p>گزارش‌دهنده: {selectedReport.profiles?.display_name || 'ناشناس'}</p>
+                <p>دلیل: {selectedReport.reason || 'other'}</p>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2 border-t">
+                <Button size="sm" variant="outline" onClick={cancelEditing}>
+                  انصراف
+                </Button>
+                <Button size="sm" onClick={handleSaveQuestion} disabled={isSavingQuestion}>
+                  {isSavingQuestion && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+                  <Save className="h-4 w-4 ml-2" />
+                  ذخیره تغییرات
                 </Button>
               </div>
             </div>

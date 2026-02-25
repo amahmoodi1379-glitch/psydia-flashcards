@@ -13,6 +13,7 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
 import { ReviewPageSkeleton } from "@/components/skeleton/ReviewPageSkeleton";
 import { useReportQuestion } from "@/hooks/useReportQuestion";
+import { ReportReasonDialog } from "@/components/exam/ReportReasonDialog";
 import { useLeitnerToggle } from "@/hooks/useLeitnerToggle";
 import { toast } from "sonner";
 import { hapticImpact, hapticNotification } from "@/lib/haptic";
@@ -180,9 +181,17 @@ export default function ReviewPage() {
     toggleBookmark(currentQuestion.id);
   };
 
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+
   const handleReport = () => {
     if (!currentQuestion || isReporting) return;
-    reportQuestion(currentQuestion.id);
+    setReportDialogOpen(true);
+  };
+
+  const handleSubmitReport = (reason: string) => {
+    if (!currentQuestion) return;
+    reportQuestion(currentQuestion.id, reason);
+    setReportDialogOpen(false);
   };
 
   // Loading state with skeleton
@@ -362,6 +371,13 @@ export default function ReviewPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ReportReasonDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        onSubmit={handleSubmitReport}
+        isSubmitting={isReporting}
+      />
     </AppLayout>
   );
 }

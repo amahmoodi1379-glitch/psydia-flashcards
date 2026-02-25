@@ -22,6 +22,7 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
 
 import { useReportQuestion } from "@/hooks/useReportQuestion";
+import { ReportReasonDialog } from "@/components/exam/ReportReasonDialog";
 import { toast } from "sonner";
 import { hapticImpact } from "@/lib/haptic";
 
@@ -162,9 +163,17 @@ export default function SubtopicQuestionsPage() {
     toggleBookmark(questionId);
   };
 
+  const [reportDialogQuestionId, setReportDialogQuestionId] = useState<string | null>(null);
+
   const handleReport = (questionId: string) => {
     if (isReporting) return;
-    reportQuestion(questionId);
+    setReportDialogQuestionId(questionId);
+  };
+
+  const handleSubmitReport = (reason: string) => {
+    if (!reportDialogQuestionId) return;
+    reportQuestion(reportDialogQuestionId, reason);
+    setReportDialogQuestionId(null);
   };
 
   const handleGoBack = () => {
@@ -398,6 +407,13 @@ export default function SubtopicQuestionsPage() {
           </div>
         )}
       </div>
+
+      <ReportReasonDialog
+        open={!!reportDialogQuestionId}
+        onOpenChange={(open) => { if (!open) setReportDialogQuestionId(null); }}
+        onSubmit={handleSubmitReport}
+        isSubmitting={isReporting}
+      />
     </AppLayout>
   );
 }

@@ -175,7 +175,7 @@ export default function UsersManager() {
             </div>
             <div className="flex items-center gap-2">
               <Input
-                placeholder="جستجو نام یا آیدی..."
+                placeholder="جستجو نام، آیدی یا یوزرنیم..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="flex-1 sm:w-56"
@@ -207,6 +207,7 @@ export default function UsersManager() {
                     <TableRow>
                       <TableHead>نام نمایشی</TableHead>
                       <TableHead>آیدی تلگرام</TableHead>
+                      <TableHead>یوزرنیم</TableHead>
                       <TableHead>نقش</TableHead>
                       <TableHead>اشتراک</TableHead>
                       <TableHead>انقضا</TableHead>
@@ -220,6 +221,11 @@ export default function UsersManager() {
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">{user.display_name || '-'}</TableCell>
                         <TableCell className="font-mono text-sm">{user.telegram_id || '-'}</TableCell>
+                        <TableCell className="text-sm">
+                          {user.telegram_username ? (
+                            <span className="text-primary">@{user.telegram_username}</span>
+                          ) : '-'}
+                        </TableCell>
                         <TableCell>
                           {user.is_admin && (
                             <Badge className="bg-destructive/10 text-destructive">
@@ -249,7 +255,7 @@ export default function UsersManager() {
                     ))}
                     {users.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           {searchQuery ? 'هیچ کاربری با این مشخصات یافت نشد' : 'هیچ کاربری یافت نشد'}
                         </TableCell>
                       </TableRow>
@@ -287,6 +293,9 @@ export default function UsersManager() {
                         </div>
                         <div className="text-xs text-muted-foreground font-mono">
                           {user.telegram_id || '-'}
+                          {user.telegram_username && (
+                            <span className="text-primary mr-2">@{user.telegram_username}</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                           <span>{user.attempt_count.toLocaleString('fa-IR')} پاسخ</span>
@@ -356,7 +365,12 @@ export default function UsersManager() {
             <div className="space-y-4 py-4">
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="font-medium">{editingUser.display_name || 'بدون نام'}</p>
-                <p className="text-sm text-muted-foreground">{editingUser.telegram_id || '-'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {editingUser.telegram_id || '-'}
+                  {editingUser.telegram_username && (
+                    <span className="text-primary mr-2">@{editingUser.telegram_username}</span>
+                  )}
+                </p>
               </div>
 
               {/* Admin Toggle */}

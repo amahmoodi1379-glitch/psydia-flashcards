@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, FolderTree, FileText, HardDrive, HelpCircle, Users } from 'lucide-react';
+import { BookOpen, FolderTree, FileText, HardDrive, HelpCircle, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Stats {
   subjects: number;
@@ -18,6 +19,30 @@ interface TableStorageStat {
   total_size_bytes: number;
   table_size_pretty: string;
   index_size_pretty: string;
+}
+
+// Supabase free tier: 500 MB database
+const FREE_TIER_DB_BYTES = 500 * 1024 * 1024;
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getUsageColor(percent: number): string {
+  if (percent >= 90) return 'bg-red-500';
+  if (percent >= 70) return 'bg-orange-500';
+  if (percent >= 50) return 'bg-yellow-500';
+  return 'bg-green-500';
+}
+
+function getUsageTextColor(percent: number): string {
+  if (percent >= 90) return 'text-red-500';
+  if (percent >= 70) return 'text-orange-500';
+  if (percent >= 50) return 'text-yellow-500';
+  return 'text-green-500';
 }
 
 export default function AdminDashboard() {
@@ -75,6 +100,11 @@ export default function AdminDashboard() {
     { title: 'کاربران', value: stats.users, icon: Users, color: 'text-pink-500' },
   ];
 
+  const totalDbBytes = storageStats.reduce((sum, s) => sum + s.total_size_bytes, 0);
+  const usagePercent = Math.min((totalDbBytes / FREE_TIER_DB_BYTES) * 100, 100);
+  const remainingBytes = Math.max(FREE_TIER_DB_BYTES - totalDbBytes, 0);
+  const maxTableBytes = Math.max(...storageStats.map(s => s.total_size_bytes), 1);
+
   return (
     <div>
       <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-6">داشبورد</h1>
@@ -97,7 +127,65 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* Free Tier Usage Overview */}
       <Card className="mt-6">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="text-base font-semibold">وضعیت Free Tier سوپابیس</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">محدودیت دیتابیس: ۵۰۰ مگابایت</p>
+          </div>
+          {!isLoading && (
+            usagePercent >= 70 ? (
+              <AlertTriangle className={cn('h-5 w-5', getUsageTextColor(usagePercent))} />
+            ) : (
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            )
+          )}
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-muted-foreground text-sm">در حال بارگذاری...</div>
+          ) : (
+            <div className="space-y-4">
+              {/* Main usage bar */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={cn('text-2xl font-bold', getUsageTextColor(usagePercent))}>
+                    {usagePercent.toFixed(1)}%
+                  </span>
+                  <span className="text-sm text-muted-foreground" dir="ltr">
+                    {formatBytes(totalDbBytes)} / {formatBytes(FREE_TIER_DB_BYTES)}
+                  </span>
+                </div>
+                <div className="w-full h-4 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-500', getUsageColor(usagePercent))}
+                    style={{ width: `${Math.max(usagePercent, 0.5)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs text-muted-foreground">
+                    باقی‌مانده: <span className="font-medium text-foreground" dir="ltr">{formatBytes(remainingBytes)}</span>
+                  </span>
+                  {usagePercent >= 90 && (
+                    <span className="text-xs text-red-500 font-medium">
+                      بحرانی! ارتقا دهید
+                    </span>
+                  )}
+                  {usagePercent >= 70 && usagePercent < 90 && (
+                    <span className="text-xs text-orange-500 font-medium">
+                      هشدار: فضا رو به اتمام
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Per-table breakdown */}
+      <Card className="mt-4">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base font-semibold">پایش حجم جداول کلیدی</CardTitle>
           <HardDrive className="h-5 w-5 text-muted-foreground" />
@@ -108,27 +196,37 @@ export default function AdminDashboard() {
           ) : storageStats.length === 0 ? (
             <div className="text-muted-foreground text-sm">داده‌ای برای نمایش وجود ندارد.</div>
           ) : (
-            <div className="space-y-2">
-              {storageStats.map((item) => (
-                <div
-                  key={item.table_name}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b pb-2 last:border-b-0"
-                >
-                  <div>
-                    <div className="font-medium text-sm">{item.table_name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      ردیف تخمینی: {item.row_estimate.toLocaleString('fa-IR')}
+            <div className="space-y-3">
+              {storageStats.map((item) => {
+                const tablePercent = (item.total_size_bytes / FREE_TIER_DB_BYTES) * 100;
+                const relativePercent = (item.total_size_bytes / maxTableBytes) * 100;
+                return (
+                  <div key={item.table_name} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-medium text-sm truncate">{item.table_name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          ({item.row_estimate.toLocaleString('fa-IR')} ردیف)
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground shrink-0 mr-2" dir="ltr">
+                        <span className="font-medium text-foreground">{item.total_size_pretty}</span>
+                        <span className="text-muted-foreground"> ({tablePercent.toFixed(1)}%)</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all duration-500', getUsageColor(tablePercent * 2))}
+                        style={{ width: `${Math.max(relativePercent, 1)}%` }}
+                      />
+                    </div>
+                    <div className="flex gap-3 text-xs text-muted-foreground" dir="ltr">
+                      <span>Table: {item.table_size_pretty}</span>
+                      <span>Index: {item.index_size_pretty}</span>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground sm:text-left sm:text-sm" dir="ltr">
-                    <span className="font-medium text-foreground">{item.total_size_pretty}</span>
-                    <span className="mx-1">·</span>
-                    Table: {item.table_size_pretty}
-                    <span className="mx-1">·</span>
-                    Index: {item.index_size_pretty}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

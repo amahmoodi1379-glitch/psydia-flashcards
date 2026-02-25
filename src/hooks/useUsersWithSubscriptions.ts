@@ -6,6 +6,7 @@ export interface UserWithSubscription {
   id: string;
   display_name: string | null;
   telegram_id: string | null;
+  telegram_username: string | null;
   created_at: string;
   updated_at: string;
   attempt_count: number;
