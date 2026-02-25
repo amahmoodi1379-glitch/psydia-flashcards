@@ -55,14 +55,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { signOut } = useAuth();
+  const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const currentNav = navItems.find((item) => {
-    if (typeof window !== 'undefined') {
-      return window.location.pathname === item.path;
-    }
-    return false;
-  });
+  const currentNav = navItems.find((item) => location.pathname === item.path);
 
   return (
     <div className="min-h-screen bg-background flex" dir="rtl">

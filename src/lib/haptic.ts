@@ -26,10 +26,4 @@ export function hapticNotification(type: NotificationType) {
   }
 }
 
-export function hapticSelection() {
-  try {
-    getHaptic()?.selectionChanged();
-  } catch {
-    // Silently ignore if not available
-  }
-}
+

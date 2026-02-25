@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { HelpCircle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,7 +47,11 @@ export function QuestionCard({
       }, {})
     : null;
 
+  const isCheckingRef = useRef(false);
+
   const checkAnswer = async (shuffledIndex: number) => {
+    if (isCheckingRef.current) return;
+    isCheckingRef.current = true;
     setIsChecking(true);
     setHasError(false);
     setPendingIndex(shuffledIndex);
@@ -87,6 +91,7 @@ export function QuestionCard({
       toast.error("خطا در بررسی پاسخ. لطفاً دوباره تلاش کنید.");
     } finally {
       setIsChecking(false);
+      isCheckingRef.current = false;
     }
   };
 

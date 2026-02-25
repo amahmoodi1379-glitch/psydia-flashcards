@@ -22,64 +22,12 @@ interface SubjectData {
   topics: TopicData[];
 }
 
-interface GuestSubtopic {
-  id: string;
-  title: string;
-}
-
-interface GuestTopic {
-  id: string;
-  title: string;
-  subtopics: GuestSubtopic[];
-}
-
-interface GuestSubject {
-  id: string;
-  title: string;
-  topics: GuestTopic[];
-}
-
 export function useHierarchicalMastery() {
   const { user } = useAuth();
 
   const { data, isLoading } = useQuery({
     queryKey: ["hierarchical-mastery", user?.id],
     queryFn: async (): Promise<SubjectData[]> => {
-      if (!user) {
-        // Return structure with 0 mastery for guests
-        const { data: subjects } = await supabase
-          .from("subjects")
-          .select(`
-            id,
-            title,
-            topics (
-              id,
-              title,
-              subtopics (
-                id,
-                title
-              )
-            )
-          `)
-          .order("display_order");
-
-        return ((subjects || []) as GuestSubject[]).map((s) => ({
-          id: s.id,
-          name: s.title,
-          mastery: 0,
-          topics: (s.topics || []).map((t) => ({
-            id: t.id,
-            name: t.title,
-            mastery: 0,
-            subtopics: (t.subtopics || []).map((st) => ({
-              id: st.id,
-              name: st.title,
-              mastery: 0,
-            })),
-          })),
-        }));
-      }
-
       const { data, error } = await supabase.rpc("get_hierarchical_mastery");
 
       if (error) {

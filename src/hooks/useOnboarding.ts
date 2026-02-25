@@ -60,11 +60,6 @@ export function useOnboarding() {
     setHasCompletedOnboarding(true);
   }, []);
 
-  const startOnboarding = useCallback(() => {
-    setCurrentStepIndex(0);
-    setIsOnboardingActive(true);
-  }, []);
-
   const nextStep = useCallback(() => {
     if (currentStepIndex < ONBOARDING_STEPS.length - 1) {
       setCurrentStepIndex((prev) => prev + 1);
@@ -83,22 +78,14 @@ export function useOnboarding() {
     completeOnboarding();
   }, [completeOnboarding]);
 
-  const resetOnboarding = useCallback(() => {
-    localStorage.removeItem(ONBOARDING_KEY);
-    setHasCompletedOnboarding(false);
-    setCurrentStepIndex(0);
-  }, []);
-
   return {
     isOnboardingActive,
     currentStep: ONBOARDING_STEPS[currentStepIndex],
     currentStepIndex,
     totalSteps: ONBOARDING_STEPS.length,
     hasCompletedOnboarding,
-    startOnboarding,
     nextStep,
     prevStep,
     skipOnboarding,
-    resetOnboarding,
   };
 }

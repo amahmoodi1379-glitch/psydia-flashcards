@@ -27,14 +27,18 @@ export default function ProfilePage() {
   // Fetch avatar_url from profiles table (DB) instead of Telegram metadata
   useEffect(() => {
     if (!user?.id) return;
-    supabase
-      .from("profiles")
-      .select("avatar_url")
-      .eq("id", user.id)
-      .single()
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", user.id)
+          .single();
         if (data?.avatar_url) setDbAvatarUrl(data.avatar_url);
-      });
+      } catch {
+        // Silently ignore — avatar will fall back to Telegram or default
+      }
+    })();
   }, [user?.id]);
 
   const avatarUrl = dbAvatarUrl ?? telegramUser?.avatar_url ?? null;

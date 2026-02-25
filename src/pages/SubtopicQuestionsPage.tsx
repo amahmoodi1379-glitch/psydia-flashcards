@@ -132,6 +132,7 @@ export default function SubtopicQuestionsPage() {
       await Promise.all([
         refetchSubscription(),
         queryClient.invalidateQueries({ queryKey: ["leitner-due-count"] }),
+        queryClient.invalidateQueries({ queryKey: ["subtopic-questions"] }),
       ]);
     } catch (recordError) {
       const message =

@@ -147,8 +147,13 @@ export default function SubscriptionPage() {
                     {plans.find(p => p.id === currentPlan)?.name || "رایگان"}
                   </p>
                 </div>
-                <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
-                  فعال
+                <Badge variant="secondary" className={cn(
+                  "text-xs",
+                  subscription?.is_active !== false
+                    ? "bg-primary/10 text-primary"
+                    : "bg-destructive/10 text-destructive"
+                )}>
+                  {subscription?.is_active !== false ? "فعال" : "منقضی شده"}
                 </Badge>
               </div>
               <div className="flex items-center gap-4 text-sm">
