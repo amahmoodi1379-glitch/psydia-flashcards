@@ -9,8 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Pencil, Trash2, Loader2, Eye, EyeOff, Search, ChevronRight, ChevronLeft, Upload, Copy, CheckCircle2, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { Plus, Pencil, Trash2, Loader2, Eye, EyeOff, Search, ChevronRight, ChevronLeft, Upload, Copy, CheckCircle2, AlertCircle, Download } from 'lucide-react';import { toast } from 'sonner';
 import { HierarchicalSubtopicPicker } from '@/components/admin/HierarchicalSubtopicPicker';
 
 interface Question {
@@ -74,6 +73,10 @@ export default function QuestionsManager() {
   const [bulkIsImporting, setBulkIsImporting] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ success: number; failed: number } | null>(null);
   const [schemaCopied, setSchemaCopied] = useState(false);
+  // Export state
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportSubtopicId, setExportSubtopicId] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   const fetchQuestions = async (page: number, search: string) => {
     setIsLoading(true);
@@ -409,6 +412,55 @@ export default function QuestionsManager() {
     }
   };
 
+  const handleExport = async () => {
+    if (!exportSubtopicId) {
+      toast.error('لطفاً ساب‌تاپیک را انتخاب کنید');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('subtopic_id', exportSubtopicId);
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast.error('سوالی برای این ساب‌تاپیک یافت نشد');
+        return;
+      }
+
+      const st = subtopics.find(s => s.id === exportSubtopicId);
+      const fileName = `questions_${st ? st.title.replace(/\s+/g, '_') : 'export'}.json`;
+
+      // فرمت کردن داده‌ها دقیقاً شبیه فرمت ایمپورت (اسکیما)
+      const exportData = data.map(q => ({
+        stem_text: q.stem_text,
+        choices: q.choices,
+        correct_index: q.correct_index,
+        explanation: q.explanation
+      }));
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('فایل با موفقیت دانلود شد');
+      setIsExportDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+      toast.error('خطا در دانلود سوالات');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  
   const openBulkDialog = () => {
     setBulkSubtopicId(lastUsedSubtopicId);
     setBulkJsonText('');
@@ -436,6 +488,11 @@ export default function QuestionsManager() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">مدیریت سوالات</h1>
         <div className="flex items-center gap-2">
+          <Button onClick={() => { setExportSubtopicId(lastUsedSubtopicId); setIsExportDialogOpen(true); }} variant="outline" className="gap-2 flex-1 sm:flex-none" disabled={subtopics.length === 0}>
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">دانلود سوالات</span>
+            <span className="sm:hidden">دانلود</span>
+          </Button>
           <Button onClick={openBulkDialog} variant="outline" className="gap-2 flex-1 sm:flex-none" disabled={subtopics.length === 0}>
             <Upload className="h-4 w-4" />
             <span className="hidden sm:inline">وارد دسته‌جمعی</span>
@@ -692,6 +749,48 @@ export default function QuestionsManager() {
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
               {editingQuestion ? 'ذخیره تغییرات' : 'افزودن سوال'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Export Dialog */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent dir="rtl" className="w-full max-w-md mx-2 sm:mx-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-primary" />
+              دانلود سوالات (JSON)
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              ساب‌تاپیک مورد نظر را انتخاب کنید تا تمام سوالات آن به صورت یک فایل JSON (قابل استفاده برای ایمپورت مجدد) دانلود شود.
+            </p>
+            <HierarchicalSubtopicPicker
+              subjects={hierarchySubjects}
+              topics={hierarchyTopics}
+              subtopics={subtopics}
+              value={exportSubtopicId}
+              onValueChange={(val) => setExportSubtopicId(val)}
+              label="انتخاب ساب‌تاپیک"
+              required
+              placeholder="انتخاب کنید"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>
+              انصراف
+            </Button>
+            <Button
+              onClick={handleExport}
+              disabled={isExporting || !exportSubtopicId}
+              className="gap-2"
+            >
+              {isExporting && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Download className="h-4 w-4" />
+              دانلود فایل
             </Button>
           </DialogFooter>
         </DialogContent>
